@@ -1610,7 +1610,7 @@ async function handleSave(mode){
         </div>`;
       document.getElementById('validationErrors').scrollIntoView({behavior:'smooth', block:'start'});
       btnValidar.disabled = false;
-      btnValidar.textContent = ic('trophy') + ' Concluir Curadoria';
+      btnValidar.innerHTML = ic('trophy') + ' Concluir Curadoria';
       return; // não avança nem marca como validado localmente — a gravação real falhou
     }
     // Persistência local — mantida para que Dashboard, Consultar Iniciativas e
