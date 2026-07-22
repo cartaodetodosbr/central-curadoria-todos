@@ -845,12 +845,15 @@ const ApiService = (function () {
    */
   async function salvarCuradoria(dados) {
     const payload = {
-      id_iniciativa: dados.id,
+      // Number(...) garante que esses dois campos saem como número de verdade no JSON,
+      // mesmo que "dados.id"/"dados.nota" cheguem como texto (o conector do Excel Online
+      // no Power Automate costuma devolver valores numéricos de célula como string).
+      id_iniciativa: Number(dados.id),
       nome_projeto: dados.nomeProjeto,
       nome_franquia: dados.nomeFranquia,
       categoria_oficial: dados.categoria,
       potencial_replicacao: dados.potencial,
-      nota_reconhecimento: dados.nota,
+      nota_reconhecimento: Number(dados.nota),
       parecer_curadoria: dados.parecer,
       revisor: dados.revisor,
       data_hora: new Date().toISOString(),
