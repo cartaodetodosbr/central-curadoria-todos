@@ -523,6 +523,18 @@ textarea.obs-field:focus, .edit-select:focus{outline:none;border-color:var(--t);
   font-size:13.5px;color:var(--gd);line-height:1.65;white-space:pre-wrap;word-wrap:break-word;
 }
 
+/* Destaque extra no botão principal "Iniciar Revisão" do Dashboard */
+.btn-hero-cta{
+  font-size:1.05rem; padding:16px 34px;
+  box-shadow:0 6px 22px rgba(255,255,255,.35), 0 0 0 0 rgba(255,255,255,.5);
+  animation:heroCtaPulse 2.4s ease-in-out infinite;
+}
+@keyframes heroCtaPulse{
+  0%   { box-shadow:0 6px 22px rgba(255,255,255,.35), 0 0 0 0 rgba(255,255,255,.35); }
+  70%  { box-shadow:0 6px 22px rgba(255,255,255,.35), 0 0 0 12px rgba(255,255,255,0); }
+  100% { box-shadow:0 6px 22px rgba(255,255,255,.35), 0 0 0 0 rgba(255,255,255,0); }
+}
+
 </style>
 </head>
 <body>
@@ -845,7 +857,13 @@ const ApiService = (function () {
     };
     const resp = await fetch(API_SALVAR_CURADORIA, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      // IMPORTANTE: "Content-Type: application/json" faz o navegador exigir uma verificação
+      // extra antes do POST (chamada "preflight"), e o gatilho HTTP do Power Automate não
+      // responde essa verificação — o navegador bloqueia o envio antes mesmo de sair da
+      // máquina do usuário (por isso nada aparecia no histórico de execuções do fluxo).
+      // "text/plain" evita essa verificação; o Power Automate continua lendo e interpretando
+      // o conteúdo como JSON normalmente, porque ele lê o corpo da requisição, não o cabeçalho.
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(payload),
     });
     if (!resp.ok) {
@@ -1176,7 +1194,7 @@ function precomputeAreas(){
 const AppState = {
   revisor: '',
   currentStrategy: 'proxima_pendente',
-  currentQueue: [],
+  currentQueue: null, // null = fila nunca foi iniciada nesta sessão (distinto de [] = fila vazia/concluída)
   currentIndex: 0,
   currentDraft: null, // formulário em edição da iniciativa atual
 };
@@ -1189,6 +1207,13 @@ const PAGE_TITLES = {
 };
 
 function goToPage(page){
+  // Clicar direto em "Fila de Revisão" (pelo menu) sem antes clicar em "Iniciar Revisão"
+  // deixava a página em branco, pois a fila nunca tinha sido montada. Agora, nesse caso,
+  // a revisão começa sozinha — a experiência fica igual a clicar em "Iniciar Revisão".
+  if(page === 'revisao' && AppState.currentQueue === null){
+    startReview();
+    return;
+  }
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const target = document.getElementById('page-'+page);
   if(target) target.classList.add('active');
@@ -1291,7 +1316,7 @@ function renderDashboard(){
     ${stats.pendentes > 0 ? `
       <h1>Você tem ${stats.pendentes} iniciativa${stats.pendentes===1?'':'s'} pendente${stats.pendentes===1?'':'s'} de validação.</h1>
       <div class="g-breakdown">${greetingChips}</div>
-      <button class="btn btn-teal btn-xl" id="btnIniciarRevisao">${ic('bolt')} Iniciar Revisão</button>
+      <button class="btn btn-teal btn-xl btn-hero-cta" id="btnIniciarRevisao">${ic('bolt')} Iniciar Revisão</button>
     ` : `
       <div class="g-empty">${ic('trophy')} Tudo revisado por aqui — não há iniciativas pendentes no momento.</div>
     `}
