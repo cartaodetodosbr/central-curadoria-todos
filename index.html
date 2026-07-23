@@ -775,6 +775,22 @@ const MASTER = {
     1: "Pouco potencial para reconhecimento.", 2: "Potencial limitado.", 3: "Boa iniciativa.",
     4: "Excelente iniciativa.", 5: "Iniciativa referência para a Rede.",
   },
+  // Indicadores Qualitativos — usados para montagem de cases de reconhecimento.
+  // Cada um tem um texto-base inserido na caixa de Observações ao ser selecionado.
+  indicadoresQualitativos: [
+    { t: "Engajamento e Motivação da Equipe", d: "A iniciativa deixou o time mais envolvido e motivado." },
+    { t: "Reconhecimento e Valorização de Pessoas", d: "Celebra ou reconhece o trabalho de colaboradores." },
+    { t: "Clima Organizacional / Cultura", d: "Melhora o ambiente de trabalho e reduz atrito interno." },
+    { t: "Experiência Percebida pelo Cliente/Paciente", d: "Sensação de cuidado, atenção e humanização no atendimento." },
+    { t: "Confiança e Credibilidade da Marca", d: "Fortalece a reputação institucional na percepção externa." },
+    { t: "Autonomia e Protagonismo da Franquia", d: "A unidade ganhou independência para resolver problemas sozinha." },
+    { t: "Colaboração e Alinhamento entre Equipes/Setores", d: "Melhora a comunicação entre áreas diferentes." },
+    { t: "Bem-estar / Redução de Sobrecarga da Equipe", d: "Menos estresse operacional, menos \"apagar incêndio\"." },
+    { t: "Inovação e Capacidade de Adaptação", d: "A franquia demonstrou criatividade/pioneirismo ao aplicar a tecnologia." },
+    { t: "Consistência e Padronização da Experiência", d: "O cliente recebe o mesmo nível de atendimento em qualquer franquia." },
+    { t: "Outro", d: "" },
+    { t: "Não se aplica", d: "Nenhum indicador qualitativo relevante identificado nesta iniciativa." },
+  ],
   // Usada pela página "Consultar Iniciativas" (filtro de status) — mantida como estava,
   // pois representa o status interno de fluxo (Repository), não os campos de curadoria.
   statusCentral: ["Pendente", "Em revisão", "Validada", "Necessita revisão"],
@@ -1537,8 +1553,15 @@ function renderReviewCard(){
           </div>
 
           <div class="review-block">
-            <div class="rb-label">Parecer da Curadoria <span class="req-star">*</span><span class="rb-hint">motivo da categoria, observações, recomendações, justificativa da nota</span></div>
-            <textarea class="obs-field" id="fldParecer" placeholder="Registre aqui a justificativa da classificação...">${esc(draft.parecer === '—' ? '' : draft.parecer)}</textarea>
+            <div class="rb-label">Indicadores Qualitativos<span class="rb-hint">selecione de 1 a 3 — o texto é inserido nas observações abaixo, e pode ser editado livremente lá</span></div>
+            <div class="tech-chip-grid" id="qualiChipGrid">
+              ${MASTER.indicadoresQualitativos.map((q,i)=>`<span class="tech-chip" data-idx="${i}">${esc(q.t)}</span>`).join('')}
+            </div>
+          </div>
+
+          <div class="review-block">
+            <div class="rb-label">Observações do Parecer da Curadoria + Objetivos Qualitativos <span class="req-star">*</span><span class="rb-hint">motivo da categoria, resultados alcançados, objetivos qualitativos (engajamento, reconhecimento, experiência do cliente, etc.), justificativa da nota</span></div>
+            <textarea class="obs-field" id="fldParecer" placeholder="Registre aqui a justificativa da classificação, os resultados alcançados e os objetivos qualitativos observados (ex: engajamento da equipe, reconhecimento de pessoas, experiência do cliente)...">${esc(draft.parecer === '—' ? '' : draft.parecer)}</textarea>
           </div>
 
         </div>
@@ -1567,6 +1590,31 @@ function renderReviewCard(){
     });
   });
 
+  // Indicadores Qualitativos — clicar insere "Nome: descrição" no final das observações
+  // (Não remove texto ao desmarcar, pois o campo pode já ter sido editado manualmente.)
+  const qualiGrid = document.getElementById('qualiChipGrid');
+  qualiGrid.querySelectorAll('.tech-chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      const jaSelecionados = qualiGrid.querySelectorAll('.tech-chip.on').length;
+      const estaSelecionado = chip.classList.contains('on');
+      if(!estaSelecionado && jaSelecionados >= 3){
+        showToast('Selecione no máximo 3 indicadores qualitativos.');
+        return;
+      }
+      chip.classList.toggle('on');
+      if(chip.classList.contains('on')){
+        const item = MASTER.indicadoresQualitativos[parseInt(chip.dataset.idx,10)];
+        const textarea = document.getElementById('fldParecer');
+        const linha = item.d ? `${item.t}: ${item.d}` : `${item.t}: `;
+        const textoAtual = textarea.value.trim();
+        const cabecalhoJaExiste = textoAtual.includes('Indicadores Qualitativos:');
+        let novoTrecho = cabecalhoJaExiste ? linha : `Indicadores Qualitativos:\n${linha}`;
+        textarea.value = textoAtual ? (textoAtual + '\n' + novoTrecho) : novoTrecho;
+        if(!item.d) textarea.focus(); // "Outro" — deixa o cursor pronto pra completar
+      }
+    });
+  });
+
   document.getElementById('btnAnterior').addEventListener('click', ()=>{
     if(AppState.currentIndex>0){ AppState.currentIndex--; renderReviewCard(); }
   });
@@ -1591,7 +1639,7 @@ function validateDraft(draft){
   if(!draft.categoria) erros.push('Selecione a Categoria.');
   if(!draft.potencial) erros.push('Selecione o Potencial de Replicação.');
   if(!draft.nota) erros.push('Atribua o Potencial para Reconhecimento (1 a 5 estrelas).');
-  if(!draft.parecer || !draft.parecer.trim()) erros.push('Escreva o Parecer da Curadoria.');
+  if(!draft.parecer || !draft.parecer.trim()) erros.push('Escreva as Observações do Parecer da Curadoria + Objetivos Qualitativos.');
   return erros;
 }
 
