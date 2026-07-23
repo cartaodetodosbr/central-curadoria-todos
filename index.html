@@ -819,7 +819,11 @@ function sugerirArea(categoriaOriginal, tecnologiasOriginal) {
 // ---------- Endpoints reais do Power Automate ----------
 const API_BUSCAR_INICIATIVA   = 'https://defaulte93279240f9745ba871f4a124f3343.19.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/00/workflows/30c7d71593ee423ca2e01e3cc25f5e07/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=2jsHWt_cLnNBkRRMNrI2Hnev-n_J7kprtCOCy_o6oTI';
 const API_SALVAR_CURADORIA    = 'https://defaulte93279240f9745ba871f4a124f3343.19.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/16/workflows/f1015d6b46744615944cf682fce41e63/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=kNhVHeEI-dpYjNOLYdabOA0MxrvC3JLhWap4TOA3jaI';
-// Ainda não existe um Fluxo 3 para estatísticas — o Dashboard continua calculando
+// Fluxo novo — leia a aba Validações e devolve só os IDs já curados. Necessário para
+// evitar que duas pessoas curem a mesma iniciativa ao mesmo tempo. Troque pela URL
+// real assim que o fluxo "Central Curadoria - Buscar IDs Curados" estiver criado.
+const API_BUSCAR_IDS_CURADOS  = 'https://SEU-FLUXO-POWER-AUTOMATE.exemplo/buscar-ids-curados';
+// Ainda não existe um Fluxo para estatísticas — o Dashboard continua calculando
 // tudo localmente a partir dos dados já carregados (ValidationService.dashboardStats).
 const API_BUSCAR_ESTATISTICAS = null;
 
@@ -837,6 +841,25 @@ const ApiService = (function () {
       throw new Error(`Falha ao buscar iniciativas do Power Automate (HTTP ${resp.status})`);
     }
     return resp.json();
+  }
+
+  /**
+   * Busca os IDs das iniciativas já curadas por QUALQUER pessoa, lendo a aba
+   * Validações direto da nuvem (Fluxo "Buscar IDs Curados"). Usado antes de montar
+   * a fila de revisão, para não repetir trabalho já feito por outro revisor.
+   * Retorna null (em vez de lançar erro) se a checagem falhar — quem chamou decide
+   * como lidar com essa incerteza (normalmente: avisa e segue só com o histórico local).
+   */
+  async function buscarIdsJaCurados() {
+    try {
+      const resp = await fetch(API_BUSCAR_IDS_CURADOS);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const ids = await resp.json();
+      return (ids || []).map(Number);
+    } catch (err) {
+      console.error('[ApiService.buscarIdsJaCurados] Falha ao verificar curadorias remotas:', err);
+      return null;
+    }
   }
 
   /**
@@ -903,7 +926,7 @@ const ApiService = (function () {
     return resp.json();
   }
 
-  return { buscarTodasIniciativas, buscarProximaIniciativa, salvarCuradoria, buscarEstatisticas };
+  return { buscarTodasIniciativas, buscarIdsJaCurados, buscarProximaIniciativa, salvarCuradoria, buscarEstatisticas };
 })();
 
 </script>
@@ -1226,13 +1249,6 @@ const PAGE_TITLES = {
 };
 
 function goToPage(page){
-  // Clicar direto em "Fila de Revisão" (pelo menu) sem antes clicar em "Iniciar Revisão"
-  // deixava a página em branco, pois a fila nunca tinha sido montada. Agora, nesse caso,
-  // a revisão começa sozinha — a experiência fica igual a clicar em "Iniciar Revisão".
-  if(page === 'revisao' && AppState.currentQueue === null){
-    startReview();
-    return;
-  }
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const target = document.getElementById('page-'+page);
   if(target) target.classList.add('active');
@@ -1244,6 +1260,10 @@ function goToPage(page){
   if(page==='dashboard') renderDashboard();
   if(page==='lista') renderLista();
   if(page==='indicadores') renderIndicadores();
+  // Clicar direto em "Fila de Revisão" sem antes clicar em "Iniciar Revisão" deixava a
+  // página em branco. Agora, nesse caso, a fila é montada sozinha (mesmo comportamento
+  // de clicar "Iniciar Revisão") — e sempre checando na nuvem quem outros revisores já curaram.
+  if(page==='revisao' && AppState.currentQueue === null) buildQueueAndRender();
   location.hash = page;
 }
 
@@ -1402,11 +1422,35 @@ function renderBarList(containerId, entries){
    ============================================================ */
 
 function startReview(){
-  const validations = ValidationRepository.getAllValidations();
-  AppState.currentQueue = ValidationService.applyQueueStrategy(RAW_DATA, validations, 'proxima_pendente');
-  AppState.currentIndex = 0;
+  AppState.currentQueue = null; // força reconstruir a fila (mesmo se já existir uma montada)
   goToPage('revisao');
-  if(!AppState.currentQueue.length){ renderReviewEmpty(); } else { renderReviewCard(); }
+}
+
+/**
+ * Monta a fila de revisão consultando, além do histórico local desta sessão, quem já
+ * foi curado por QUALQUER pessoa (via ApiService.buscarIdsJaCurados, que lê a aba
+ * Validações na nuvem). Isso evita duas pessoas curando a mesma iniciativa ao mesmo
+ * tempo em sessões diferentes.
+ */
+async function buildQueueAndRender(){
+  document.getElementById('reviewTopbar').innerHTML = '';
+  document.getElementById('reviewShell').innerHTML = `
+    <div class="card" style="padding:50px 30px;text-align:center;">
+      <p style="color:var(--gm);font-size:13px;">Verificando iniciativas já curadas por outros revisores…</p>
+    </div>`;
+
+  const idsRemotos = await ApiService.buscarIdsJaCurados(); // array de IDs, ou null se a checagem falhar
+  const validations = ValidationRepository.getAllValidations();
+  let queue = ValidationService.applyQueueStrategy(RAW_DATA, validations, 'proxima_pendente');
+  if(idsRemotos !== null){
+    const remotoSet = new Set(idsRemotos);
+    queue = queue.filter(item => !remotoSet.has(item.id));
+  } else {
+    showToast('Não foi possível confirmar quem já curou outras iniciativas — mostrando só o histórico local.');
+  }
+  AppState.currentQueue = queue;
+  AppState.currentIndex = 0;
+  if(AppState.currentQueue.length) renderReviewCard(); else renderReviewEmpty();
 }
 
 function renderReviewEmpty(){
@@ -1415,7 +1459,7 @@ function renderReviewEmpty(){
     <div class="card" style="padding:50px 30px;text-align:center;">
       <div style="color:var(--t);margin-bottom:14px;">${ic('trophy')}</div>
       <h3 style="color:var(--pd);margin-bottom:8px;">Nenhuma iniciativa pendente</h3>
-      <p style="color:var(--gm);font-size:13px;">Todas as iniciativas já foram curadas nesta sessão.</p>
+      <p style="color:var(--gm);font-size:13px;">Todas as iniciativas já foram curadas — por você ou por outra pessoa da equipe.</p>
     </div>`;
 }
 
@@ -1701,11 +1745,9 @@ async function handleSave(mode){
 }
 
 /** Avança automaticamente para a próxima pendente — sem perguntar. */
-function advanceToNext(){
-  const validations = ValidationRepository.getAllValidations();
-  AppState.currentQueue = ValidationService.applyQueueStrategy(RAW_DATA, validations, 'proxima_pendente');
-  AppState.currentIndex = 0;
-  if(AppState.currentQueue.length) renderReviewCard(); else renderReviewEmpty();
+async function advanceToNext(){
+  AppState.currentQueue = null;
+  await buildQueueAndRender();
   window.scrollTo({top:0, behavior:'auto'});
 }
 
