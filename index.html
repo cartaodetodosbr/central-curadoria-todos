@@ -1307,6 +1307,10 @@ async function initApp(){
     if(!Array.isArray(dados) || dados.length === 0){
       throw new Error('O Power Automate respondeu, mas não retornou nenhuma iniciativa.');
     }
+    // O Excel Online costuma devolver valores numéricos de célula como texto (ex: "1"
+    // em vez de 1). Normalizamos aqui, uma única vez, para número de verdade — assim
+    // toda comparação de ID no resto do app (===) funciona de forma confiável.
+    dados.forEach((item) => { item.id = Number(item.id); });
     RAW_DATA = dados;
     precomputeAreas();
     loading.classList.add('hidden');
@@ -1329,6 +1333,7 @@ document.getElementById('appOfflineBtn').addEventListener('click', ()=>{
     return;
   }
   RAW_DATA = MOCK_RAW_DATA_FALLBACK;
+  RAW_DATA.forEach((item) => { item.id = Number(item.id); });
   precomputeAreas();
   document.getElementById('appErrorScreen').classList.add('hidden');
   document.getElementById('reviewerGate').classList.remove('hidden');
