@@ -1577,7 +1577,7 @@ function renderReviewCard(){
 
           <div class="ro-group-title">Identificação</div>
           <div class="block1-grid">
-            <div class="ro-field"><div class="ro-k">Data/Hora</div><div class="ro-v">${esc(item.data_hora)}</div></div>
+            <div class="ro-field"><div class="ro-k">Data/Hora</div><div class="ro-v">${esc(item.data_hora_cadastro)}</div></div>
             <div class="ro-field"><div class="ro-k">Regional</div><div class="ro-v">${esc(item.regional)}</div></div>
             <div class="ro-field"><div class="ro-k">Estado</div><div class="ro-v">${esc(item.estado)}</div></div>
             <div class="ro-field"><div class="ro-k">Cidade</div><div class="ro-v">${esc(item.cidade)}</div></div>
@@ -1589,9 +1589,9 @@ function renderReviewCard(){
 
           <div class="ro-group-title">Informações da Iniciativa</div>
           <div class="block1-grid">
-            <div class="ro-field"><div class="ro-k">Possui Iniciativas?</div><div class="ro-v">${esc(item.possui_iniciativas)}</div></div>
+            <div class="ro-field"><div class="ro-k">Possui Iniciativas?</div><div class="ro-v">${esc(item.possui_iniciativa)}</div></div>
             <div class="ro-field"><div class="ro-k">Nome do Projeto</div><div class="ro-v">${esc(item.nome)}</div></div>
-            <div class="ro-field ro-highlight"><div class="ro-k">Categoria Informada pela Franquia<span class="ro-badge">não é a categoria oficial</span></div><div class="ro-v">${esc(item.categoria_franquia)}</div></div>
+            <div class="ro-field ro-highlight"><div class="ro-k">Categoria Informada pela Franquia<span class="ro-badge">não é a categoria oficial</span></div><div class="ro-v">${esc(item.categoria)}</div></div>
             <div class="ro-field"><div class="ro-k">Status Atual</div><div class="ro-v">${esc(item.status_atual)}</div></div>
             <div class="ro-field"><div class="ro-k">Área Impactada</div><div class="ro-v">${esc(item.area_impactada)}</div></div>
             <div class="ro-field"><div class="ro-k">Próximo Estágio</div><div class="ro-v">${esc(item.proximo_estagio)}</div></div>
@@ -1600,27 +1600,27 @@ function renderReviewCard(){
 
           <div class="ro-group-title">Tecnologias</div>
           <div class="block1-grid">
-            <div class="ro-field"><div class="ro-k">Ferramentas (seleção)</div><div class="ro-v">${esc(item.ferramentas_sel)}</div></div>
+            <div class="ro-field"><div class="ro-k">Ferramentas (seleção)</div><div class="ro-v">${esc(item.ferramentas_chips)}</div></div>
           </div>
           <div class="ro-full"><div class="ro-full-k">Descrição das Ferramentas</div><div class="ro-full-v">${descText(item.ferramentas_desc)}</div></div>
 
           <div class="ro-group-title">Indicadores</div>
           <div class="block1-grid">
-            <div class="ro-field"><div class="ro-k">Indicadores (seleção)</div><div class="ro-v">${esc(item.indicadores_sel)}</div></div>
+            <div class="ro-field"><div class="ro-k">Indicadores (seleção)</div><div class="ro-v">${esc(item.indicadores_chips)}</div></div>
           </div>
           <div class="ro-full"><div class="ro-full-k">Descrição dos Indicadores</div><div class="ro-full-v">${descText(item.indicadores_desc)}</div></div>
 
           <div class="ro-group-title">Benefícios</div>
           <div class="block1-grid">
-            <div class="ro-field"><div class="ro-k">Benefícios (seleção)</div><div class="ro-v">${esc(item.beneficios_sel)}</div></div>
+            <div class="ro-field"><div class="ro-k">Benefícios (seleção)</div><div class="ro-v">${esc(item.beneficios_chips)}</div></div>
           </div>
           <div class="ro-full"><div class="ro-full-k">Descrição dos Benefícios</div><div class="ro-full-v">${descText(item.beneficios_desc)}</div></div>
 
           <div class="ro-group-title">Responsável</div>
           <div class="block1-grid">
-            <div class="ro-field"><div class="ro-k">Responsável Principal</div><div class="ro-v">${esc(item.responsavel_principal)}</div></div>
-            <div class="ro-field"><div class="ro-k">E-mail</div><div class="ro-v">${esc(item.email_responsavel)}</div></div>
-            <div class="ro-field"><div class="ro-k">WhatsApp</div><div class="ro-v">${esc(item.whatsapp_responsavel)}</div></div>
+            <div class="ro-field"><div class="ro-k">Responsável Principal</div><div class="ro-v">${esc(item.responsavel)}</div></div>
+            <div class="ro-field"><div class="ro-k">E-mail</div><div class="ro-v">${esc(item.responsavel_email)}</div></div>
+            <div class="ro-field"><div class="ro-k">WhatsApp</div><div class="ro-v">${esc(item.responsavel_whatsapp)}</div></div>
           </div>
         </div>
 
@@ -1836,32 +1836,64 @@ function uniqueSortedVals(arr){ return [...new Set(arr.filter(x=>x!==''&&x!==nul
 
 function buildListaFilterPanel(){
   const regionais = uniqueSortedVals(RAW_DATA.map(d=>d.regional));
-  const franquias = uniqueSortedVals(RAW_DATA.map(d=>d.franquia));
   const categorias = uniqueSortedVals(RAW_DATA.map(d=>d.categoria_original || 'Sem categoria'));
   const statusList = MASTER.statusCentral;
 
   function groupHtml(title, field, values, openDefault){
+    const selecionados = ListaState.filters[field];
     const opts = values.map(v=>{
       const id = `lf_${field}_${slug(v)}`;
+      const checked = selecionados.has(v) ? 'checked' : '';
       return `<label class="filter-opt" for="${id}">
-        <input type="checkbox" id="${id}" data-field="${field}" value="${esc(v)}">
+        <input type="checkbox" id="${id}" data-field="${field}" value="${esc(v)}" ${checked}>
         <span>${esc(v)}</span>
       </label>`;
     }).join('');
     return `<details class="filter-group" ${openDefault?'open':''}><summary>${title}</summary><div>${opts}</div></details>`;
   }
 
+  /** Franquias visíveis dependem das Regionais marcadas — filtro em cascata. */
+  function franquiasDisponiveis(){
+    const regsMarcadas = ListaState.filters.regional;
+    const base = regsMarcadas.size
+      ? RAW_DATA.filter(d => regsMarcadas.has(d.regional))
+      : RAW_DATA;
+    return uniqueSortedVals(base.map(d=>d.franquia));
+  }
+
   document.getElementById('listaFilterPanel').innerHTML = `
+    <button type="button" class="btn btn-ghost btn-sm" id="btnLimparFiltrosLista" style="width:100%;margin-bottom:10px;">${ic('x')} Limpar filtros</button>
     ${groupHtml('Status', 'status', statusList, true)}
     ${groupHtml('Categoria', 'categoria', categorias, true)}
     ${groupHtml('Regional', 'regional', regionais, false)}
-    ${groupHtml('Franquia', 'franquia', franquias, false)}
+    ${groupHtml('Franquia', 'franquia', franquiasDisponiveis(), false)}
   `;
+
+  document.getElementById('btnLimparFiltrosLista').addEventListener('click', ()=>{
+    ListaState.filters.regional.clear();
+    ListaState.filters.franquia.clear();
+    ListaState.filters.categoria.clear();
+    ListaState.filters.status.clear();
+    ListaState.search = '';
+    const searchInput = document.getElementById('listaSearch');
+    if(searchInput) searchInput.value = '';
+    buildListaFilterPanel();
+    renderListaResults();
+  });
+
   document.getElementById('listaFilterPanel').addEventListener('change', (e)=>{
     if(e.target.matches('input[type=checkbox]')){
       const field = e.target.dataset.field, val = e.target.value;
       const set = ListaState.filters[field];
       if(e.target.checked) set.add(val); else set.delete(val);
+      // Mudar a Regional pode invalidar franquias já marcadas que não pertencem
+      // mais ao recorte atual — removemos essas antes de re-renderizar o painel,
+      // para o filtro de Franquia nunca ficar "escondendo" uma seleção incoerente.
+      if(field === 'regional'){
+        const disponiveis = new Set(franquiasDisponiveis());
+        ListaState.filters.franquia.forEach(fr => { if(!disponiveis.has(fr)) ListaState.filters.franquia.delete(fr); });
+        buildListaFilterPanel();
+      }
       renderListaResults();
     }
   });
