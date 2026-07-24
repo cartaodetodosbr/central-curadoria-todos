@@ -136,6 +136,9 @@ header.hdr{
 .kpi .icon svg{width:19px;height:19px;}
 .kpi .val{font-family:'Sora',sans-serif;font-size:27px;font-weight:800;color:var(--pd);letter-spacing:-.02em;}
 .kpi .lab{font-size:12px;color:var(--gm);margin-top:3px;font-weight:600;}
+.kpi-novo-destaque{border-color:var(--t);box-shadow:0 0 0 2px rgba(0,176,155,.15),var(--sh0);}
+.kpi-novo-destaque .icon{background:var(--t);color:#fff;}
+.badge-novo{display:inline-flex;align-items:center;gap:4px;background:var(--t);color:#fff;font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;padding:3px 9px;border-radius:50px;}
 
 .chart-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:18px;margin-bottom:18px;}
 .chart-grid.two{grid-template-columns:1fr 1fr;}
@@ -816,13 +819,15 @@ function sugerirArea(categoriaOriginal, tecnologiasOriginal) {
    regra de negócio chama fetch() diretamente — tudo passa por aqui.
    ============================================================ */
 
-// ---------- Endpoints reais do Power Automate ----------
-const API_BUSCAR_INICIATIVA   = 'https://defaulte93279240f9745ba871f4a124f3343.19.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/00/workflows/30c7d71593ee423ca2e01e3cc25f5e07/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=2jsHWt_cLnNBkRRMNrI2Hnev-n_J7kprtCOCy_o6oTI';
-const API_SALVAR_CURADORIA    = 'https://defaulte93279240f9745ba871f4a124f3343.19.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/16/workflows/f1015d6b46744615944cf682fce41e63/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=kNhVHeEI-dpYjNOLYdabOA0MxrvC3JLhWap4TOA3jaI';
-// Fluxo novo — leia a aba Validações e devolve só os IDs já curados. Necessário para
-// evitar que duas pessoas curem a mesma iniciativa ao mesmo tempo. Troque pela URL
-// real assim que o fluxo "Central Curadoria - Buscar IDs Curados" estiver criado.
-const API_BUSCAR_IDS_CURADOS  = 'https://defaulte93279240f9745ba871f4a124f3343.19.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/22/workflows/a764989c810f4fa0b15255ced87a8c0a/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=9rzT2cyRI53RMhLUyfjdsoEOXZOqSaBKk0q-1yXtHnM';
+// ---------- Endpoints reais do Power Automate (Lista SharePoint "Iniciativas") ----------
+const API_BUSCAR_INICIATIVA   = 'https://defaulte93279240f9745ba871f4a124f3343.19.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/21/workflows/b8f5b42698e24ce3a63540da6eb4aaa1/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=yNGfvMjhe4MjaIYkX38VvKpCDsJNqzqfX82NqBZPHVg';
+const API_SALVAR_CURADORIA    = 'https://defaulte93279240f9745ba871f4a124f3343.19.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/21/workflows/10f1df6c301c44b18d9d91907c5d2abd/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=hKosOQJXU2Wo8f0JkMM_s0UA3YWRrCbGpxHbH2Al9hQ';
+// Fluxo "Buscar IDs Curados" aposentado: o Get items do fluxo "Buscar Iniciativas" já
+// filtra Status/Value eq 'Pendente' direto na Lista do SharePoint — não existe mais
+// risco de duas pessoas curarem a mesma iniciativa, porque quem já foi curada nem
+// chega a sair do SharePoint. A função abaixo fica só como stub de compatibilidade,
+// para não quebrar nenhuma chamada antiga que ainda exista.
+const API_BUSCAR_IDS_CURADOS  = null;
 // Ainda não existe um Fluxo para estatísticas — o Dashboard continua calculando
 // tudo localmente a partir dos dados já carregados (ValidationService.dashboardStats).
 const API_BUSCAR_ESTATISTICAS = null;
@@ -844,22 +849,13 @@ const ApiService = (function () {
   }
 
   /**
-   * Busca os IDs das iniciativas já curadas por QUALQUER pessoa, lendo a aba
-   * Validações direto da nuvem (Fluxo "Buscar IDs Curados"). Usado antes de montar
-   * a fila de revisão, para não repetir trabalho já feito por outro revisor.
-   * Retorna null (em vez de lançar erro) se a checagem falhar — quem chamou decide
-   * como lidar com essa incerteza (normalmente: avisa e segue só com o histórico local).
+   * Aposentado: o filtro Status/Value eq 'Pendente' já acontece direto no SharePoint,
+   * dentro do fluxo "Buscar Iniciativas". Mantido como stub (devolve null) só para não
+   * quebrar nenhum chamador antigo — "null" já é o valor que o resto do código trata
+   * como "checagem não disponível, seguir sem cruzamento extra".
    */
   async function buscarIdsJaCurados() {
-    try {
-      const resp = await fetch(API_BUSCAR_IDS_CURADOS);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const ids = await resp.json();
-      return (ids || []).map(Number);
-    } catch (err) {
-      console.error('[ApiService.buscarIdsJaCurados] Falha ao verificar curadorias remotas:', err);
-      return null;
-    }
+    return null;
   }
 
   /**
@@ -874,28 +870,25 @@ const ApiService = (function () {
   }
 
   /**
-   * Envia o JSON de curadoria para o Power Automate (Fluxo "Salvar Curadoria"),
-   * que grava uma nova linha na aba "Validações" da planilha de origem.
+   * Envia o JSON de curadoria para o Power Automate (Fluxo "Central Curadoria - Salvar
+   * Curadoria (SharePoint)"), que faz um Update item na Lista "Iniciativas", localizando
+   * a linha pelo "id" (ID nativo do SharePoint) e gravando Status = "Validada" junto.
    *
-   * "id_iniciativa" é a CHAVE — o mesmo ID estável (1 a 545) que existe como
-   * primeira coluna da aba "Revisão de Categorização". "nome_projeto" e
-   * "nome_franquia" vão junto só para facilitar a leitura humana da planilha,
-   * nunca são usados como chave de relacionamento.
+   * "id" é a CHAVE — o ID nativo da Lista do SharePoint (não mais um índice sequencial
+   * de planilha). Não precisamos mais enviar nome_projeto/nome_franquia/data_hora: o
+   * Update item já sabe qual linha é pelo id, e a Data e Hora da Curadoria é gerada
+   * dentro do próprio fluxo (convertTimeZone(utcNow(), ...)), não no navegador.
    */
   async function salvarCuradoria(dados) {
     const payload = {
-      // Number(...) garante que esses dois campos saem como número de verdade no JSON,
-      // mesmo que "dados.id"/"dados.nota" cheguem como texto (o conector do Excel Online
-      // no Power Automate costuma devolver valores numéricos de célula como string).
-      id_iniciativa: Number(dados.id),
-      nome_projeto: dados.nomeProjeto,
-      nome_franquia: dados.nomeFranquia,
+      // Number(...) garante que "id" e "nota" saem como número de verdade no JSON,
+      // mesmo que cheguem como texto de algum campo do formulário.
+      id: Number(dados.id),
       categoria_oficial: dados.categoria,
       potencial_replicacao: dados.potencial,
       nota_reconhecimento: Number(dados.nota),
       parecer_curadoria: dados.parecer,
       revisor: dados.revisor,
-      data_hora: new Date().toISOString(),
     };
     const resp = await fetch(API_SALVAR_CURADORIA, {
       method: 'POST',
@@ -911,7 +904,7 @@ const ApiService = (function () {
     if (!resp.ok) {
       throw new Error(`Falha ao salvar curadoria no Power Automate (HTTP ${resp.status})`);
     }
-    console.log('[ApiService.salvarCuradoria] Gravado com sucesso na aba Validações:', payload);
+    console.log('[ApiService.salvarCuradoria] Gravado com sucesso na Lista Iniciativas:', payload);
     return payload;
   }
 
@@ -1099,19 +1092,14 @@ const ValidationService = (function () {
       filter: (item, isValidated, ctx) => !isValidated && item._areaSugerida === ctx.area,
     },
     sem_categoria: {
-      label: 'Sem categoria',
+      label: 'Sem categoria informada',
       icon: 'tag',
       filter: (item, isValidated) => !isValidated && !item.categoria_original,
     },
     sem_tecnologia: {
-      label: 'Sem tecnologia',
+      label: 'Sem ferramenta informada',
       icon: 'puzzle',
       filter: (item, isValidated) => !isValidated && (!item.tecnologias_original || item.tecnologias_original.length === 0),
-    },
-    baixa_confianca: {
-      label: 'Baixa confiança (Fase 1)',
-      icon: 'question',
-      filter: (item, isValidated) => !isValidated && (item.observacao_original || '').toLowerCase().startsWith('baixa confiança'),
     },
   };
 
@@ -1293,7 +1281,71 @@ function initReviewerGate(){
   input.focus();
 }
 
-/* ---------- Carregamento inicial — busca as iniciativas de verdade no Power Automate ---------- */
+/**
+ * Converte o formato de data que o SharePoint devolve para "Data e Hora do Cadastro"
+ * ("07/24/2026 10:16:18", ou seja MM/DD/YYYY HH:mm:ss) em um objeto Date de verdade.
+ * Se o valor vier vazio/ausente (cadastros antigos, migrados antes da coluna existir),
+ * devolve null — quem chamar decide como tratar (normalmente: não marca como "novo").
+ */
+function parseDataCadastro(valor){
+  if(!valor) return null;
+  const m = String(valor).match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/);
+  if(!m) return null;
+  const [, mes, dia, ano, hh, mm, ss] = m;
+  return new Date(Number(ano), Number(mes)-1, Number(dia), Number(hh), Number(mm), Number(ss));
+}
+
+/* ---------- Indicativo de "item novo" — por curador, guardado no navegador ---------- */
+const NOVO_ITEM_STORAGE_KEY = 'centralCuradoria_ultimoAcesso';
+
+function getUltimoAcesso(){
+  const raw = localStorage.getItem(NOVO_ITEM_STORAGE_KEY);
+  return raw ? new Date(raw) : null;
+}
+
+function marcarAcessoAgora(){
+  localStorage.setItem(NOVO_ITEM_STORAGE_KEY, new Date().toISOString());
+}
+
+/** Marca item._novo = true/false em cada item de RAW_DATA, comparando com o último acesso salvo. */
+function marcarItensNovos(ultimoAcesso){
+  RAW_DATA.forEach((item) => {
+    const dataCadastro = parseDataCadastro(item.data_hora_cadastro);
+    item._novo = !!(dataCadastro && ultimoAcesso && dataCadastro > ultimoAcesso);
+  });
+}
+
+function contarItensNovos(){
+  return RAW_DATA.filter(item => item._novo).length;
+}
+
+/**
+ * Normaliza um item vindo do fluxo "Buscar Iniciativas" (Lista SharePoint) para o
+ * formato que o resto da Central espera — o mesmo formato que a antiga Fase 1
+ * (análise prévia sobre a planilha) produzia.
+ *
+ * IMPORTANTE: a Lista do SharePoint não tem mais uma "Fase 1" de pré-análise
+ * (categoria sugerida por IA, nível de confiança, tecnologias sugeridas). Em vez
+ * disso, usamos a CATEGORIA QUE A PRÓPRIA FRANQUIA INFORMOU no formulário como
+ * sugestão inicial para o curador — sem nível de confiança, porque essa informação
+ * genuinamente não existe mais. O curador sempre decide a categoria final.
+ */
+function normalizeIniciativa(raw){
+  const tecnologias = (raw.ferramentas_chips || '')
+    .split(',').map(s=>s.trim()).filter(Boolean);
+  return Object.assign({}, raw, {
+    nome: raw.nome_projeto || '(Sem nome informado)',
+    franquia: raw.nome_franquia || '',
+    // Sugestão inicial = categoria que a própria franquia escolheu no formulário.
+    categoria_original: raw.categoria || '',
+    tecnologias_original: tecnologias,
+    // Não existe mais "potencial sugerido" nem "observação de confiança" —
+    // ficam vazios; o curador preenche o potencial do zero na tela de revisão.
+    potencial_original: undefined,
+    observacao_original: '',
+  });
+}
+
 async function initApp(){
   const loading = document.getElementById('appLoadingScreen');
   const errorScreen = document.getElementById('appErrorScreen');
@@ -1307,11 +1359,18 @@ async function initApp(){
     if(!Array.isArray(dados) || dados.length === 0){
       throw new Error('O Power Automate respondeu, mas não retornou nenhuma iniciativa.');
     }
-    // O Excel Online costuma devolver valores numéricos de célula como texto (ex: "1"
-    // em vez de 1). Normalizamos aqui, uma única vez, para número de verdade — assim
-    // toda comparação de ID no resto do app (===) funciona de forma confiável.
-    dados.forEach((item) => { item.id = Number(item.id); });
-    RAW_DATA = dados;
+    // "id" já vem como número da Lista do SharePoint, mas Number(...) aqui garante
+    // isso mesmo se algum conector devolver como texto.
+    RAW_DATA = dados.map((item) => {
+      const normalizado = normalizeIniciativa(item);
+      normalizado.id = Number(normalizado.id);
+      return normalizado;
+    });
+    // Lê o último acesso salvo ANTES de atualizá-lo — senão todo item deixaria de
+    // parecer "novo" na mesma visita em que apareceu.
+    const ultimoAcesso = getUltimoAcesso();
+    marcarItensNovos(ultimoAcesso);
+    marcarAcessoAgora();
     precomputeAreas();
     loading.classList.add('hidden');
     document.getElementById('reviewerGate').classList.remove('hidden');
@@ -1368,16 +1427,18 @@ function renderDashboard(){
   const btnIniciar = document.getElementById('btnIniciarRevisao');
   if(btnIniciar) btnIniciar.addEventListener('click', ()=> startReview('proxima_pendente'));
 
+  const qtdNovos = contarItensNovos();
   const kpis = [
     [ic('box'), stats.total, 'Total de Iniciativas'],
+    [ic('sparkle'), qtdNovos, 'Novos desde sua última visita'],
     [ic('trophy'), stats.validadas, 'Revisadas'],
     [ic('clipboard'), stats.pendentes, 'Pendentes'],
     [ic('wrench'), stats.emRevisao, 'Em Revisão'],
     [ic('sparkle'), stats.pctConcluido + '%', 'Concluído'],
     [ic('question'), stats.necessitaRevisao, 'Necessita Revisão'],
   ];
-  document.getElementById('kpiGrid').innerHTML = kpis.map(([icoHtml,val,lab])=>`
-    <div class="card kpi hoverable">
+  document.getElementById('kpiGrid').innerHTML = kpis.map(([icoHtml,val,lab],idx)=>`
+    <div class="card kpi hoverable${idx===1 && qtdNovos>0 ? ' kpi-novo-destaque' : ''}">
       <div class="icon">${icoHtml}</div>
       <div class="val">${val}</div>
       <div class="lab">${lab}</div>
@@ -1432,27 +1493,16 @@ function startReview(){
 }
 
 /**
- * Monta a fila de revisão consultando, além do histórico local desta sessão, quem já
- * foi curado por QUALQUER pessoa (via ApiService.buscarIdsJaCurados, que lê a aba
- * Validações na nuvem). Isso evita duas pessoas curando a mesma iniciativa ao mesmo
- * tempo em sessões diferentes.
+ * Monta a fila de revisão a partir do histórico local desta sessão (rascunhos que o
+ * próprio revisor já começou). Como o fluxo "Buscar Iniciativas" já filtra
+ * Status/Value eq 'Pendente' direto na Lista do SharePoint, uma iniciativa validada
+ * por QUALQUER pessoa simplesmente não aparece mais em RAW_DATA na próxima recarga —
+ * não existe mais risco de duas pessoas curando a mesma iniciativa em paralelo.
  */
 async function buildQueueAndRender(){
   document.getElementById('reviewTopbar').innerHTML = '';
-  document.getElementById('reviewShell').innerHTML = `
-    <div class="card" style="padding:50px 30px;text-align:center;">
-      <p style="color:var(--gm);font-size:13px;">Verificando iniciativas já curadas por outros revisores…</p>
-    </div>`;
-
-  const idsRemotos = await ApiService.buscarIdsJaCurados(); // array de IDs, ou null se a checagem falhar
   const validations = ValidationRepository.getAllValidations();
-  let queue = ValidationService.applyQueueStrategy(RAW_DATA, validations, 'proxima_pendente');
-  if(idsRemotos !== null){
-    const remotoSet = new Set(idsRemotos);
-    queue = queue.filter(item => !remotoSet.has(item.id));
-  } else {
-    showToast('Não foi possível confirmar quem já curou outras iniciativas — mostrando só o histórico local.');
-  }
+  const queue = ValidationService.applyQueueStrategy(RAW_DATA, validations, 'proxima_pendente');
   AppState.currentQueue = queue;
   AppState.currentIndex = 0;
   if(AppState.currentQueue.length) renderReviewCard(); else renderReviewEmpty();
@@ -1719,10 +1769,10 @@ async function handleSave(mode){
     btnValidar.disabled = true;
     btnValidar.textContent = 'Salvando…';
     try {
-      // Envia o JSON de curadoria para o Power Automate (Fluxo "Salvar Curadoria"),
-      // que grava a linha na aba "Validações" da planilha de origem.
+      // Envia o JSON de curadoria para o Power Automate (Fluxo "Central Curadoria -
+      // Salvar Curadoria (SharePoint)"), que faz Update item na Lista "Iniciativas".
       await ApiService.salvarCuradoria({
-        id: item.id, nomeProjeto: item.nome, nomeFranquia: item.franquia,
+        id: item.id,
         categoria: draft.categoria, potencial: draft.potencial,
         nota: draft.nota, parecer: draft.parecer, revisor: AppState.revisor,
       });
@@ -1842,7 +1892,7 @@ function renderListaResults(){
   el.innerHTML = list.slice(0,400).map(d=>{
     const st = statusOf(d.id);
     return `<div class="card cat-card hoverable">
-      <div class="top-row"><h4>${esc(d.nome)}</h4><span class="status-pill ${slug(st)}">${esc(st)}</span></div>
+      <div class="top-row"><h4>${esc(d.nome)}${d._novo ? ' <span class="badge-novo">'+ic('sparkle')+' Novo</span>' : ''}</h4><span class="status-pill ${slug(st)}">${esc(st)}</span></div>
       <div class="badgerow">
         ${badgeHtml(d.categoria_original || 'Sem categoria', CAT_COLOR[d.categoria_original||'Sem categoria']||'b-gray')}
         ${badgeHtml(d.regional.replace('Regional ',''),'b-navy')}
