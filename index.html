@@ -641,10 +641,6 @@ textarea.obs-field:focus, .edit-select:focus{outline:none;border-color:var(--t);
           <h3>Pendências por Franquia em cada Regional</h3><div class="cap">Clique numa regional para ver as franquias com iniciativas ainda não validadas</div>
           <div id="chartFranquiaPorRegional"></div>
         </div>
-        <div class="card chart-card">
-          <h3>Pendentes por Área Responsável</h3><div class="cap">Sugestão de roteamento — governança futura</div>
-          <div id="chartPorArea"></div>
-        </div>
       </section>
 
       <!-- ===================== FILA DE REVISÃO ===================== -->
@@ -1437,10 +1433,15 @@ function renderDashboard(){
   const validations = ValidationRepository.getAllValidations();
   const stats = ValidationService.dashboardStats(RAW_DATA, validations);
 
-  // saudação + resumo por Regional (as regionais com mais iniciativas pendentes)
-  const regEntries = Object.entries(stats.porRegional).sort((a,b)=>b[1]-a[1]);
-  const greetingChips = regEntries.slice(0,4).map(([k,v])=>
-    `<span class="g-chip">${v} são de ${esc(k)}</span>`).join('');
+  // Saudação — chips das 5 regionais oficiais em ordem fixa, sempre visíveis.
+  // Regionais com 0 pendências aparecem normalmente (valor 0), para o curador
+  // ter sempre o panorama completo sem depender de quais dados chegaram.
+  const REGIONAIS_OFICIAIS = ['Interior', 'Centro Sul', 'SPMG', 'Equatorial', 'Costa Leste'];
+  const greetingChips = REGIONAIS_OFICIAIS.map(reg => {
+    // stats.porRegional guarda a chave com o prefixo "Regional " — tentamos as duas formas
+    const v = stats.porRegional[`Regional ${reg}`] || stats.porRegional[reg] || 0;
+    return `<span class="g-chip">${v} de ${esc(reg)}</span>`;
+  }).join('');
 
   document.getElementById('greetingBlock').innerHTML = `
     <div class="g-hello">Olá, ${esc(AppState.revisor)}.</div>
@@ -1483,7 +1484,6 @@ function renderDashboard(){
   renderBarList('chartValidadosPorCategoria', catValidadasEntries);
 
   renderBarList('chartPorRegional', Object.entries(stats.porRegional).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k.replace('Regional ',''),v]));
-  renderBarList('chartPorArea', Object.entries(stats.porArea).sort((a,b)=>b[1]-a[1]));
   renderFranquiaPorRegional('chartFranquiaPorRegional', stats.porFranquiaPorRegional);
 
   const ultima = validations.length ? validations.reduce((a,b)=> a.data_hora > b.data_hora ? a : b).data_hora : null;
@@ -1667,9 +1667,9 @@ function renderReviewCard(){
           <div class="block1-grid">
             <div class="ro-field"><div class="ro-k">Possui Iniciativas?</div><div class="ro-v">${esc(item.possui_iniciativa)}</div></div>
             <div class="ro-field"><div class="ro-k">Nome do Projeto</div><div class="ro-v">${esc(item.nome)}</div></div>
-            <div class="ro-field ro-highlight"><div class="ro-k">Categoria Informada pela Franquia<span class="ro-badge">não é a categoria oficial</span></div><div class="ro-v">${esc(item.categoria)}</div></div>
+            <div class="ro-field"><div class="ro-k">Categoria Informada pela Franquia</div><div class="ro-v">${esc(item.categoria)}</div></div>
             <div class="ro-field"><div class="ro-k">Status Atual</div><div class="ro-v">${esc(item.status_atual)}</div></div>
-            <div class="ro-field"><div class="ro-k">Área Impactada</div><div class="ro-v">${esc(item.area_impactada)}</div></div>
+            <div class="ro-field"><div class="ro-k">Indicador Operacional Impactado</div><div class="ro-v">${esc(item.area_impactada)}</div></div>
             <div class="ro-field"><div class="ro-k">Próximo Estágio</div><div class="ro-v">${esc(item.proximo_estagio)}</div></div>
           </div>
           <div class="ro-full"><div class="ro-full-k">Objetivo do Projeto</div><div class="ro-full-v">${descText(item.objetivo)}</div></div>
