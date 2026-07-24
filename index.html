@@ -902,13 +902,17 @@ const ApiService = (function () {
     };
     const resp = await fetch(API_SALVAR_CURADORIA, {
       method: 'POST',
-      // IMPORTANTE: "Content-Type: application/json" faz o navegador exigir uma verificação
-      // extra antes do POST (chamada "preflight"), e o gatilho HTTP do Power Automate não
-      // responde essa verificação — o navegador bloqueia o envio antes mesmo de sair da
-      // máquina do usuário (por isso nada aparecia no histórico de execuções do fluxo).
-      // "text/plain" evita essa verificação; o Power Automate continua lendo e interpretando
-      // o conteúdo como JSON normalmente, porque ele lê o corpo da requisição, não o cabeçalho.
-      headers: { 'Content-Type': 'text/plain' },
+      // O endpoint environment.api.powerplatform.com com trigger "When a HTTP request
+      // is received" executa validação de schema antes de passar o body para o fluxo.
+      // Com Content-Type: application/json o runtime deserializa o body (string de bytes)
+      // para um objeto antes de validar — "Expected Object" → recebe objeto → OK.
+      // Com Content-Type: text/plain o runtime NÃO deserializa; passa a string diretamente
+      // para o validador → "Expected Object but got String" → TriggerInputSchemaMismatch.
+      //
+      // O CORS preflight (OPTIONS) que motivou o uso de text/plain não é um bloqueio real:
+      // o endpoint responde o preflight corretamente. text/plain foi uma solução para um
+      // problema que não existia, e causou este problema que existe.
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
     if (!resp.ok) {
@@ -1908,7 +1912,9 @@ function uniqueSortedVals(arr){ return [...new Set(arr.filter(x=>x!==''&&x!==nul
 
 function buildListaFilterPanel(){
   const regionais = uniqueSortedVals(RAW_DATA.map(d=>d.regional));
-  const categorias = uniqueSortedVals(RAW_DATA.map(d=>d.categoria_original || 'Sem categoria'));
+  // Categorias do filtro = as 5 categorias OFICIAIS da curadoria (não a categoria que
+  // a franquia informou no cadastro, que é só uma sugestão inicial e pode divergir).
+  const categorias = MASTER.categorias.filter(c => c !== 'Sem categoria (revisão posterior)');
   const statusList = MASTER.statusCentral;
 
   function groupHtml(title, field, values, openDefault){
