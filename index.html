@@ -1382,6 +1382,19 @@ function normalizeIniciativa(raw){
     // ficam vazios; o curador preenche o potencial do zero na tela de revisão.
     potencial_original: undefined,
     observacao_original: '',
+    // Campos de curadoria — só presentes se o item já foi validado e o Select
+    // do fluxo "Buscar Iniciativas" mapeia essas colunas do SharePoint.
+    // Nomes esperados no payload (devem ser adicionados ao Select do Power Automate):
+    //   categoria_oficial   → coluna CategoriaOficial
+    //   potencial_replicacao → coluna PotencialReplicacao
+    //   nota_reconhecimento → coluna NotaReconhecimento
+    //   parecer_curadoria   → coluna ParecerCuradoria
+    //   revisor_curadoria   → coluna Revisor
+    categoria_validada:   raw.categoria_oficial     || null,
+    potencial_validado:   raw.potencial_replicacao  || null,
+    nota_reconhecimento:  raw.nota_reconhecimento   ? Number(raw.nota_reconhecimento) : 0,
+    parecer_curadoria:    raw.parecer_curadoria     || '',
+    revisor_curadoria:    raw.revisor_curadoria     || '',
   });
 }
 
@@ -1554,7 +1567,7 @@ function renderFranquiaPorRegional(containerId, porFranquiaPorRegional){
         <div class="bar-val">${val}</div>
       </div>`;
     }).join('');
-    return `<details class="regional-group" ${idx===0?'open':''}>
+    return `<details class="regional-group">
       <summary>${esc(regional)} <span class="rg-count">${total}</span></summary>
       <div>${rows}</div>
     </details>`;
@@ -1636,14 +1649,20 @@ function renderReviewCard(){
   if(!item){ renderReviewEmpty(); return; }
 
   const existing = ValidationRepository.getById(item.id);
+  // Para itens já validados em sessões anteriores, o repositório local está vazio.
+  // Usamos os campos de curadoria que chegaram diretamente do SharePoint (via normalizeIniciativa).
   const draft = existing ? {
     categoria: existing.categoria_validada,
     potencial: existing.potencial_validado,
     nota: existing.potencial_reconhecimento || 0,
     parecer: existing.parecer_curadoria || '',
+    revisor: existing.revisor || '',
   } : {
-    categoria: item.categoria_original || '',
-    potencial: '', nota: 0, parecer: '',
+    categoria: item.categoria_validada || item.categoria_original || '',
+    potencial: item.potencial_validado  || '',
+    nota:      item.nota_reconhecimento || 0,
+    parecer:   item.parecer_curadoria   || '',
+    revisor:   item.revisor_curadoria   || '',
   };
   AppState.currentDraft = draft;
 
@@ -1719,41 +1738,59 @@ function renderReviewCard(){
           <div class="block-title block2-title">${ic('target')} Curadoria da Iniciativa</div>
           <div id="validationErrors"></div>
 
-          <div class="review-block">
-            <div class="rb-label">Categoria Definida pela Curadoria <span class="req-star">*</span></div>
-            <select class="edit-select" id="fldCategoria" style="max-width:100%;">
-              <option value="">Selecione...</option>
-              ${MASTER.categorias.map(c=>`<option value="${esc(c)}" ${c===draft.categoria?'selected':''}>${esc(c)}</option>`).join('')}
-            </select>
-          </div>
-
-          <div class="review-block">
-            <div class="rb-label">Potencial de Replicação <span class="req-star">*</span></div>
-            <div class="radio-pill-row" id="fldPotencial">
-              ${MASTER.potencialReplicacao.map(p=>`<button type="button" class="radio-pill ${draft.potencial===p.v?'on':''}" data-val="${esc(p.v)}">${esc(p.t)}</button>`).join('')}
+          ${statusOf(item.id) === 'Validada' ? `
+            <div id="curadoriaReadView">
+              <div class="ro-group-title">Classificação definida na curadoria</div>
+              <div class="block1-grid">
+                <div class="ro-field"><div class="ro-k">Categoria Oficial</div><div class="ro-v">${esc(draft.categoria || '—')}</div></div>
+                <div class="ro-field"><div class="ro-k">Potencial de Replicação</div><div class="ro-v">${esc(draft.potencial || '—')}</div></div>
+                <div class="ro-field"><div class="ro-k">Nota de Reconhecimento</div><div class="ro-v">${draft.nota ? '★'.repeat(draft.nota) + ' (' + draft.nota + '/5)' : '—'}</div></div>
+                ${draft.revisor ? `<div class="ro-field"><div class="ro-k">Curador</div><div class="ro-v">${esc(draft.revisor)}</div></div>` : ''}
+              </div>
+              <div class="ro-full" style="margin-top:10px;"><div class="ro-full-k">Parecer da Curadoria</div><div class="ro-full-v">${draft.parecer ? esc(draft.parecer) : '<span style="color:var(--gm);font-style:italic;">Nenhum parecer registrado.</span>'}</div></div>
+              <div style="margin-top:18px;">
+                <button class="btn btn-ghost btn-sm" id="btnAbrirEdicao">${ic('wrench')} Editar curadoria</button>
+              </div>
             </div>
-          </div>
+            <div id="curadoriaEditView" style="display:none;">
+          ` : `<div id="curadoriaEditView">`}
 
-          <div class="review-block">
-            <div class="rb-label">Potencial para Reconhecimento <span class="req-star">*</span></div>
-            <div class="star-row" id="starRow">
-              ${[1,2,3,4,5].map(n=>`<span class="star ${n<=draft.nota?'on':''}" data-n="${n}">★</span>`).join('')}
+            <div class="review-block">
+              <div class="rb-label">Categoria Definida pela Curadoria <span class="req-star">*</span></div>
+              <select class="edit-select" id="fldCategoria" style="max-width:100%;">
+                <option value="">Selecione...</option>
+                ${MASTER.categorias.map(c=>`<option value="${esc(c)}" ${c===draft.categoria?'selected':''}>${esc(c)}</option>`).join('')}
+              </select>
             </div>
-            <div class="star-legend" id="starLegend">${draft.nota ? MASTER.reconhecimentoLegenda[draft.nota] : 'Selecione de 1 a 5 estrelas.'}</div>
-          </div>
 
-          <div class="review-block">
-            <div class="rb-label">Indicadores Qualitativos<span class="rb-hint">selecione de 1 a 3 — o texto é inserido nas observações abaixo, e pode ser editado livremente lá</span></div>
-            <div class="tech-chip-grid" id="qualiChipGrid">
-              ${MASTER.indicadoresQualitativos.map((q,i)=>`<span class="tech-chip" data-idx="${i}">${esc(q.t)}</span>`).join('')}
+            <div class="review-block">
+              <div class="rb-label">Potencial de Replicação <span class="req-star">*</span></div>
+              <div class="radio-pill-row" id="fldPotencial">
+                ${MASTER.potencialReplicacao.map(p=>`<button type="button" class="radio-pill ${draft.potencial===p.v?'on':''}" data-val="${esc(p.v)}">${esc(p.t)}</button>`).join('')}
+              </div>
             </div>
-          </div>
 
-          <div class="review-block">
-            <div class="rb-label">Observações do Parecer da Curadoria + Objetivos Qualitativos <span class="req-star">*</span><span class="rb-hint">motivo da categoria, resultados alcançados, objetivos qualitativos (engajamento, reconhecimento, experiência do cliente, etc.), justificativa da nota</span></div>
-            <textarea class="obs-field" id="fldParecer" placeholder="Registre aqui a justificativa da classificação, os resultados alcançados e os objetivos qualitativos observados (ex: engajamento da equipe, reconhecimento de pessoas, experiência do cliente)...">${esc(draft.parecer === '—' ? '' : draft.parecer)}</textarea>
-          </div>
+            <div class="review-block">
+              <div class="rb-label">Potencial para Reconhecimento <span class="req-star">*</span></div>
+              <div class="star-row" id="starRow">
+                ${[1,2,3,4,5].map(n=>`<span class="star ${n<=draft.nota?'on':''}" data-n="${n}">★</span>`).join('')}
+              </div>
+              <div class="star-legend" id="starLegend">${draft.nota ? MASTER.reconhecimentoLegenda[draft.nota] : 'Selecione de 1 a 5 estrelas.'}</div>
+            </div>
 
+            <div class="review-block">
+              <div class="rb-label">Indicadores Qualitativos<span class="rb-hint">selecione de 1 a 3 — o texto é inserido nas observações abaixo, e pode ser editado livremente lá</span></div>
+              <div class="tech-chip-grid" id="qualiChipGrid">
+                ${MASTER.indicadoresQualitativos.map((q,i)=>`<span class="tech-chip" data-idx="${i}">${esc(q.t)}</span>`).join('')}
+              </div>
+            </div>
+
+            <div class="review-block">
+              <div class="rb-label">Observações do Parecer da Curadoria + Objetivos Qualitativos <span class="req-star">*</span><span class="rb-hint">motivo da categoria, resultados alcançados, objetivos qualitativos (engajamento, reconhecimento, experiência do cliente, etc.), justificativa da nota</span></div>
+              <textarea class="obs-field" id="fldParecer" placeholder="Registre aqui a justificativa da classificação, os resultados alcançados e os objetivos qualitativos observados...">${esc(draft.parecer === '—' ? '' : draft.parecer)}</textarea>
+            </div>
+
+          </div><!-- /curadoriaEditView -->
         </div>
       </div>
       <div class="review-actions">
@@ -1769,6 +1806,15 @@ function renderReviewCard(){
   `;
 
   bindRadioGroup('fldPotencial', (v)=> draft.potencial = v);
+
+  // Botão "Editar curadoria" — só existe quando o item já está Validado (modo leitura)
+  const btnAbrirEdicao = document.getElementById('btnAbrirEdicao');
+  if(btnAbrirEdicao){
+    btnAbrirEdicao.addEventListener('click', ()=>{
+      document.getElementById('curadoriaReadView').style.display = 'none';
+      document.getElementById('curadoriaEditView').style.display = '';
+    });
+  }
 
   document.getElementById('starRow').querySelectorAll('.star').forEach(star=>{
     star.addEventListener('click', ()=>{
@@ -2026,6 +2072,8 @@ function renderListaResults(){
   }
   el.innerHTML = list.slice(0,400).map(d=>{
     const st = statusOf(d.id);
+    const isValidada = st === 'Validada';
+    const btnLabel = isValidada ? `${ic('info')} Ver / Editar` : 'Revisar esta';
     return `<div class="card cat-card hoverable">
       <div class="top-row"><h4>${esc(d.nome)}${d._novo ? ' <span class="badge-novo">'+ic('sparkle')+' Novo</span>' : ''}</h4><span class="status-pill ${slug(st)}">${esc(st)}</span></div>
       <div class="badgerow">
@@ -2035,7 +2083,7 @@ function renderListaResults(){
       <div class="meta"><b>Franquia:</b> ${esc(d.franquia)}</div>
       <div class="foot-row">
         <span></span>
-        <button class="btn btn-ghost btn-sm" onclick="openSingleReview(${d.id})">Revisar esta</button>
+        <button class="btn ${isValidada ? 'btn-ghost' : 'btn-ghost'} btn-sm" onclick="openSingleReview(${d.id})">${btnLabel}</button>
       </div>
     </div>`;
   }).join('');
@@ -2075,10 +2123,20 @@ function renderLista(){
 function renderIndicadores(){
   const validations = ValidationRepository.getAllValidations();
   const allVersions = ValidationRepository.getAllVersions();
+  const validationsById = new Map(validations.map(v => [v.id, v]));
+
+  // Status efetivo = sessão local se existir, senão campo status do SharePoint
+  function statusEfetivo(item){
+    const local = validationsById.get(item.id);
+    return local ? local.status : (item.status || 'Pendente');
+  }
+
+  const totalValidadas = RAW_DATA.filter(d => statusEfetivo(d) === 'Validada').length;
+  const totalPendentes  = RAW_DATA.filter(d => statusEfetivo(d) === 'Pendente').length;
+  const totalEmRevisao  = RAW_DATA.filter(d => statusEfetivo(d) === 'Em revisão').length;
 
   const techAdicionadas = {};
   const catAlteradas = {};
-  let somaTempo = 0, contTempo = 0;
 
   validations.forEach((v)=>{
     const original = RAW_DATA.find(d=>d.id===v.id);
@@ -2086,7 +2144,7 @@ function renderIndicadores(){
     (v.tecnologias_validadas||[]).forEach(t=>{
       if(!(original.tecnologias_original||[]).includes(t)) techAdicionadas[t] = (techAdicionadas[t]||0)+1;
     });
-    if(v.categoria_validada !== original.categoria_original){
+    if(v.categoria_validada && v.categoria_validada !== original.categoria_original){
       const key = `${original.categoria_original||'Sem categoria'} → ${v.categoria_validada}`;
       catAlteradas[key] = (catAlteradas[key]||0)+1;
     }
@@ -2099,9 +2157,12 @@ function renderIndicadores(){
 
   document.getElementById('indResumoTexto').innerHTML = `
     <div class="kv-grid" style="grid-template-columns:repeat(3,1fr);">
-      <div class="kv"><div class="k">Registros validados</div><div class="v">${validations.filter(v=>v.status==='Validada').length}</div></div>
-      <div class="kv"><div class="k">Versões totais (histórico)</div><div class="v">${allVersions.length}</div></div>
-      <div class="kv"><div class="k">Iniciativas tocadas</div><div class="v">${validations.length}</div></div>
+      <div class="kv"><div class="k">Total de Iniciativas</div><div class="v">${RAW_DATA.length}</div></div>
+      <div class="kv"><div class="k">Validadas</div><div class="v">${totalValidadas}</div></div>
+      <div class="kv"><div class="k">Pendentes</div><div class="v">${totalPendentes}</div></div>
+      <div class="kv"><div class="k">Em Revisão</div><div class="v">${totalEmRevisao}</div></div>
+      <div class="kv"><div class="k">Versões nesta sessão</div><div class="v">${allVersions.length}</div></div>
+      <div class="kv"><div class="k">Tocadas nesta sessão</div><div class="v">${validations.length}</div></div>
     </div>
   `;
 }
