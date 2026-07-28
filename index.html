@@ -1553,6 +1553,18 @@ function renderBarList(containerId, entries){
 function renderFranquiaPorRegional(containerId, porFranquiaPorRegional){
   const el = document.getElementById(containerId);
   if(!el) return;
+
+  // Diagnóstico: identifica itens que chegaram sem regional preenchida.
+  // Como o campo é obrigatório no Portal, esses registros são anomalias —
+  // provavelmente migrados antes do Portal existir ou com falha no cadastro.
+  const semRegional = RAW_DATA.filter(d => !d.regional || d.regional.trim() === '');
+  if(semRegional.length){
+    console.warn('[Central de Curadoria] Itens sem regional preenchida:');
+    semRegional.forEach(d => {
+      console.warn(`  ID: ${d.id} | Franquia: "${d.franquia || '—'}" | Nome do Projeto: "${d.nome || '—'}" | Status: ${d.status || 'Pendente'}`);
+    });
+  }
+
   const regionais = Object.entries(porFranquiaPorRegional)
     .map(([regional, franquias]) => {
       const total = Object.values(franquias).reduce((a,b)=>a+b, 0);
@@ -1561,12 +1573,24 @@ function renderFranquiaPorRegional(containerId, porFranquiaPorRegional){
     })
     .sort((a,b)=>b.total-a.total);
 
+  // Aviso visual se existirem itens sem regional
+  const avisoHtml = semRegional.length ? `
+    <div style="background:#FBE4E4;border:1px solid #e57373;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12.5px;color:#B33636;">
+      <strong>${ic('info')} ${semRegional.length} iniciativa${semRegional.length > 1 ? 's' : ''} sem regional preenchida</strong>
+      — verifique os seguintes IDs na Lista do SharePoint:
+      <div style="margin-top:6px;display:flex;flex-direction:column;gap:2px;">
+        ${semRegional.map(d => `<span>ID <strong>${d.id}</strong> — <em>${esc(d.franquia || 'Sem franquia')}</em> — "${esc(d.nome || 'Sem nome')}"</span>`).join('')}
+      </div>
+    </div>` : '';
+
   if(!regionais.length){
-    el.innerHTML = '<div style="font-size:12.5px;color:var(--gm);">Nenhuma pendência no momento.</div>';
+    el.innerHTML = avisoHtml + '<div style="font-size:12.5px;color:var(--gm);">Nenhuma pendência no momento.</div>';
     return;
   }
 
-  el.innerHTML = regionais.map(({regional, total, entries}, idx) => {
+  el.innerHTML = avisoHtml + regionais.map(({regional, total, entries}) => {
+    // Oculta o bucket "Sem regional" do dashboard — os itens já foram sinalizados acima.
+    if(regional === 'Sem regional') return '';
     const max = Math.max(...entries.map(e=>e[1]), 1);
     const rows = entries.map(([franquia, val])=>{
       const pct = Math.max((val/max*100),2);
