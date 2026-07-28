@@ -1520,7 +1520,10 @@ function renderDashboard(){
   }
   renderBarList('chartValidadosPorCategoria', catValidadasEntries);
 
-  renderBarList('chartPorRegional', Object.entries(stats.porRegional).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k.replace('Regional ',''),v]));
+  renderBarList('chartPorRegional', Object.entries(stats.porRegional)
+    .filter(([k]) => k && k !== 'Sem regional')
+    .sort((a,b)=>b[1]-a[1])
+    .map(([k,v])=>[k.replace('Regional ',''),v]));
   renderFranquiaPorRegional('chartFranquiaPorRegional', stats.porFranquiaPorRegional);
 
   const ultima = validations.length ? validations.reduce((a,b)=> a.data_hora > b.data_hora ? a : b).data_hora : null;
@@ -2183,8 +2186,10 @@ function renderIndicadores(){
   const potencialCount = {};
   RAW_DATA.forEach(item => {
     const local = validationsById.get(item.id);
-    if (!local || local.status !== 'Validada') return;
-    const p = local.potencial_validado || '(não definido)';
+    const st = local ? local.status : (item.status || 'Pendente');
+    if (st !== 'Validada') return;
+    // Sessão local tem precedência; fallback para campo que veio do SharePoint via Select
+    const p = (local && local.potencial_validado) || item.potencial_validado || '(não definido)';
     potencialCount[p] = (potencialCount[p] || 0) + 1;
   });
   renderPizzaChart('indPotencialPizza', potencialCount);
@@ -2193,8 +2198,11 @@ function renderIndicadores(){
   const notaCount = { 1:0, 2:0, 3:0, 4:0, 5:0 };
   RAW_DATA.forEach(item => {
     const local = validationsById.get(item.id);
-    if (!local || local.status !== 'Validada') return;
-    const n = local.potencial_reconhecimento || local.nota || 0;
+    const st = local ? local.status : (item.status || 'Pendente');
+    if (st !== 'Validada') return;
+    // Sessão local: campo gravado é potencial_reconhecimento
+    // SharePoint: campo normalizado é nota_reconhecimento (via normalizeIniciativa)
+    const n = (local && (local.potencial_reconhecimento || local.nota)) || item.nota_reconhecimento || 0;
     if (n >= 1 && n <= 5) notaCount[n]++;
   });
   const notaEntries = [1,2,3,4,5].map(n => [`${'★'.repeat(n)} (${n})`, notaCount[n]]);
