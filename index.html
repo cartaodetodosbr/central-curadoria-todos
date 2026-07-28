@@ -676,14 +676,18 @@ textarea.obs-field:focus, .edit-select:focus{outline:none;border-color:var(--t);
       <!-- ===================== INDICADORES ===================== -->
       <section class="page" id="page-indicadores">
         <div class="sh">
-          <div class="tag">Análise da Sessão</div>
+          <div class="tag">Análise da Curadoria</div>
           <h2>Indicadores</h2>
-          <p>Métricas sobre o que foi validado, alterado e adicionado nesta sessão de trabalho.</p>
+          <p>Métricas consolidadas sobre as iniciativas e o trabalho de curadoria realizado.</p>
         </div>
         <div id="indResumoTexto" style="margin-bottom:18px;"></div>
         <div class="chart-grid">
-          <div class="card chart-card"><h3>Tecnologias Mais Adicionadas</h3><div class="cap">&nbsp;</div><div id="indTechAdicionadas"></div></div>
-          <div class="card chart-card"><h3>Categorias Mais Alteradas</h3><div class="cap">&nbsp;</div><div id="indCatAlteradas"></div></div>
+          <div class="card chart-card"><h3>Ferramentas Mais Utilizadas</h3><div class="cap">Com base no preenchimento das franquias</div><div id="indTechAdicionadas"></div></div>
+          <div class="card chart-card"><h3>Potencial de Replicação</h3><div class="cap">Distribuição das iniciativas validadas</div><div id="indPotencialPizza" style="display:flex;justify-content:center;align-items:center;min-height:180px;"></div></div>
+        </div>
+        <div class="card chart-card" style="margin-top:16px;">
+          <h3>Nota de Reconhecimento</h3><div class="cap">Distribuição das estrelas atribuídas nas iniciativas validadas</div>
+          <div id="indNotaReconhecimento"></div>
         </div>
       </section>
 
@@ -1222,16 +1226,21 @@ const ValidationService = (function () {
       }
     });
 
-    // porCategoriaValidada: conta pela categoria oficial que veio do SharePoint
-    // (campo categoria_validada do repositório local, ou categoria_original do item
-    // para validadas que já chegaram prontas do SharePoint)
+    // porCategoriaValidada: conta itens validados.
+    // Fonte 1 — validações feitas nesta sessão (ValidationRepository, via validationsById).
+    // Fonte 2 — itens que chegaram do SharePoint já com status 'Validada' (quando o filtro
+    //           'Status eq Pendente' for removido do fluxo "Buscar Iniciativas").
+    // Usa a categoria oficial do repositório se disponível; caso contrário usa
+    // a categoria informada pela franquia como aproximação.
     const porCategoriaValidada = {};
     rawData.forEach((item) => {
       const local = validationsById.get(item.id);
       const st = local ? local.status : (item.status || 'Pendente');
       if (st !== 'Validada') return;
-      // Usa a categoria oficial da sessão se disponível; senão a categoria do item
-      const cat = (local && local.categoria_validada) || item.categoria_original || 'Sem categoria (revisão posterior)';
+      const cat = (local && local.categoria_validada)
+        || item.categoria_validada
+        || item.categoria_original
+        || 'Sem categoria (revisão posterior)';
       porCategoriaValidada[cat] = (porCategoriaValidada[cat] || 0) + 1;
     });
 
@@ -2125,7 +2134,6 @@ function renderIndicadores(){
   const allVersions = ValidationRepository.getAllVersions();
   const validationsById = new Map(validations.map(v => [v.id, v]));
 
-  // Status efetivo = sessão local se existir, senão campo status do SharePoint
   function statusEfetivo(item){
     const local = validationsById.get(item.id);
     return local ? local.status : (item.status || 'Pendente');
@@ -2135,25 +2143,40 @@ function renderIndicadores(){
   const totalPendentes  = RAW_DATA.filter(d => statusEfetivo(d) === 'Pendente').length;
   const totalEmRevisao  = RAW_DATA.filter(d => statusEfetivo(d) === 'Em revisão').length;
 
-  const techAdicionadas = {};
-  const catAlteradas = {};
-
-  validations.forEach((v)=>{
-    const original = RAW_DATA.find(d=>d.id===v.id);
-    if(!original) return;
-    (v.tecnologias_validadas||[]).forEach(t=>{
-      if(!(original.tecnologias_original||[]).includes(t)) techAdicionadas[t] = (techAdicionadas[t]||0)+1;
+  // Ferramentas mais utilizadas — vem do preenchimento das franquias (ferramentas_chips)
+  const techCount = {};
+  RAW_DATA.forEach(item => {
+    (item.ferramentas_chips || '').split(',').map(s => s.trim()).filter(Boolean).forEach(t => {
+      techCount[t] = (techCount[t] || 0) + 1;
     });
-    if(v.categoria_validada && v.categoria_validada !== original.categoria_original){
-      const key = `${original.categoria_original||'Sem categoria'} → ${v.categoria_validada}`;
-      catAlteradas[key] = (catAlteradas[key]||0)+1;
-    }
   });
 
-  document.getElementById('indTechAdicionadas').innerHTML = Object.keys(techAdicionadas).length
-    ? renderSimpleBarHtml(techAdicionadas) : '<div style="font-size:12.5px;color:var(--gm);">Nenhuma tecnologia adicionada ainda nesta sessão.</div>';
-  document.getElementById('indCatAlteradas').innerHTML = Object.keys(catAlteradas).length
-    ? renderSimpleBarHtml(catAlteradas) : '<div style="font-size:12.5px;color:var(--gm);">Nenhuma categoria alterada ainda nesta sessão.</div>';
+  document.getElementById('indTechAdicionadas').innerHTML = Object.keys(techCount).length
+    ? renderSimpleBarHtml(techCount)
+    : '<div style="font-size:12.5px;color:var(--gm);">Nenhuma ferramenta registrada.</div>';
+
+  // Potencial de Replicação — pizza com as validadas (sessão local + SharePoint)
+  const potencialCount = {};
+  RAW_DATA.forEach(item => {
+    const local = validationsById.get(item.id);
+    if (!local || local.status !== 'Validada') return;
+    const p = local.potencial_validado || '(não definido)';
+    potencialCount[p] = (potencialCount[p] || 0) + 1;
+  });
+  renderPizzaChart('indPotencialPizza', potencialCount);
+
+  // Nota de Reconhecimento — barras horizontais para cada valor de estrela (1–5)
+  const notaCount = { 1:0, 2:0, 3:0, 4:0, 5:0 };
+  RAW_DATA.forEach(item => {
+    const local = validationsById.get(item.id);
+    if (!local || local.status !== 'Validada') return;
+    const n = local.potencial_reconhecimento || local.nota || 0;
+    if (n >= 1 && n <= 5) notaCount[n]++;
+  });
+  const notaEntries = [1,2,3,4,5].map(n => [`${'★'.repeat(n)} (${n})`, notaCount[n]]);
+  document.getElementById('indNotaReconhecimento').innerHTML = renderSimpleBarHtml(
+    Object.fromEntries(notaEntries)
+  );
 
   document.getElementById('indResumoTexto').innerHTML = `
     <div class="kv-grid" style="grid-template-columns:repeat(3,1fr);">
@@ -2166,6 +2189,58 @@ function renderIndicadores(){
     </div>
   `;
 }
+
+/**
+ * Renderiza um gráfico de pizza SVG simples dentro de um container.
+ * entries: { label: count, ... }
+ */
+function renderPizzaChart(containerId, entries){
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const total = Object.values(entries).reduce((a,b)=>a+b,0);
+  if (!total) {
+    el.innerHTML = '<div style="font-size:12.5px;color:var(--gm);">Nenhum dado disponível.</div>';
+    return;
+  }
+  // Paleta de cores
+  const CORES = ['#00796b','#26a69a','#80cbc4','#b2dfdb','#e0f2f1','#004d40'];
+  const labels = Object.keys(entries);
+  const values = labels.map(l => entries[l]);
+
+  // Calcula fatias
+  let startAngle = -Math.PI / 2;
+  const slices = values.map((v, i) => {
+    const angle = (v / total) * 2 * Math.PI;
+    const x1 = Math.cos(startAngle), y1 = Math.sin(startAngle);
+    const x2 = Math.cos(startAngle + angle), y2 = Math.sin(startAngle + angle);
+    const largeArc = angle > Math.PI ? 1 : 0;
+    const path = `M 0 0 L ${x1} ${y1} A 1 1 0 ${largeArc} 1 ${x2} ${y2} Z`;
+    const midAngle = startAngle + angle / 2;
+    const lx = Math.cos(midAngle) * 0.65, ly = Math.sin(midAngle) * 0.65;
+    startAngle += angle;
+    return { path, color: CORES[i % CORES.length], label: labels[i], value: v, lx, ly, pct: Math.round(v/total*100) };
+  });
+
+  const svgSlices = slices.map(s =>
+    `<path d="${s.path}" fill="${s.color}" stroke="white" stroke-width="0.02"/>
+     ${s.pct >= 6 ? `<text x="${s.lx}" y="${s.ly}" text-anchor="middle" dominant-baseline="middle" font-size="0.13" fill="white" font-weight="bold">${s.pct}%</text>` : ''}`
+  ).join('');
+
+  const legend = slices.map(s =>
+    `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:12px;">
+       <span style="width:12px;height:12px;border-radius:3px;background:${s.color};flex-shrink:0;"></span>
+       <span>${esc(s.label)} (${s.value})</span>
+     </div>`
+  ).join('');
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
+      <svg viewBox="-1.1 -1.1 2.2 2.2" style="width:160px;height:160px;flex-shrink:0;">${svgSlices}</svg>
+      <div>${legend}</div>
+    </div>`;
+}
+
+
 
 function renderSimpleBarHtml(obj){
   const entries = Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,10);
