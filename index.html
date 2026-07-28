@@ -1113,16 +1113,20 @@ const ValidationService = (function () {
     },
   };
 
-  function _isValidated(id, validationsById) {
+  function _isValidated(id, validationsById, rawData) {
+    // Status da sessão local tem precedência (curador acabou de validar agora)
     const v = validationsById.get(id);
-    return !!v && (v.status === 'Validada');
+    if (v) return v.status === 'Validada';
+    // Fallback: status real que veio do SharePoint via payload normalizado
+    const item = (rawData || []).find(d => d.id === id);
+    return !!item && item.status === 'Validada';
   }
 
   /** Aplica uma estratégia de fila sobre a base bruta + validações já feitas na sessão. */
   function applyQueueStrategy(rawData, validations, strategyKey, ctx) {
     const strategy = QUEUE_STRATEGIES[strategyKey] || QUEUE_STRATEGIES.proxima_pendente;
     const validationsById = new Map(validations.map((v) => [v.id, v]));
-    return rawData.filter((item) => strategy.filter(item, _isValidated(item.id, validationsById), ctx || {}));
+    return rawData.filter((item) => strategy.filter(item, _isValidated(item.id, validationsById, rawData), ctx || {}));
   }
 
   /**
@@ -1183,23 +1187,30 @@ const ValidationService = (function () {
   }
 
   function dashboardStats(rawData, validations) {
+    // Repositório da sessão — sobrescreve o status do SharePoint para itens tocados agora
     const validationsById = new Map(validations.map((v) => [v.id, v]));
-    let validadas = 0, emRevisao = 0, necessitaRevisao = 0;
-    validations.forEach((v) => {
-      if (v.status === 'Validada') validadas++;
-      else if (v.status === 'Necessita revisão') necessitaRevisao++;
-      else if (v.status === 'Em revisão') emRevisao++;
+
+    // Para cada item, o status autoritativo é: sessão local se existir, senão item.status do SharePoint
+    function statusEfetivo(item) {
+      const local = validationsById.get(item.id);
+      return local ? local.status : (item.status || 'Pendente');
+    }
+
+    let validadas = 0, emRevisao = 0, necessitaRevisao = 0, pendentes = 0;
+    rawData.forEach((item) => {
+      const st = statusEfetivo(item);
+      if (st === 'Validada') validadas++;
+      else if (st === 'Necessita revisão') necessitaRevisao++;
+      else if (st === 'Em revisão') emRevisao++;
+      else pendentes++;
     });
+
     const total = rawData.length;
-    const pendentes = total - validadas;
     const porRegional = {};
     const porArea = {};
-    // porFranquiaPorRegional: { "Regional SPMG": { "Franquia X": 3, "Franquia Y": 1 }, ... }
-    // — usado no dashboard "Pendências por Franquia dentro de cada Regional".
     const porFranquiaPorRegional = {};
     rawData.forEach((item) => {
-      const v = validationsById.get(item.id);
-      const done = v && v.status === 'Validada';
+      const done = statusEfetivo(item) === 'Validada';
       if (!done) {
         porRegional[item.regional] = (porRegional[item.regional] || 0) + 1;
         const area = item._areaSugerida || 'Operações';
@@ -1210,16 +1221,20 @@ const ValidationService = (function () {
         porFranquiaPorRegional[reg][fra] = (porFranquiaPorRegional[reg][fra] || 0) + 1;
       }
     });
-    // porCategoriaValidada: contagem SÓ das iniciativas já Validadas, pela categoria
-    // OFICIAL definida na curadoria (categoria_validada) — não pela categoria que a
-    // franquia informou. Sempre nas 5 categorias oficiais (MASTER.categorias, exceto
-    // a opção de escape "Sem categoria (revisão posterior)").
+
+    // porCategoriaValidada: conta pela categoria oficial que veio do SharePoint
+    // (campo categoria_validada do repositório local, ou categoria_original do item
+    // para validadas que já chegaram prontas do SharePoint)
     const porCategoriaValidada = {};
-    validations.forEach((v) => {
-      if (v.status !== 'Validada') return;
-      const cat = v.categoria_validada || 'Sem categoria (revisão posterior)';
+    rawData.forEach((item) => {
+      const local = validationsById.get(item.id);
+      const st = local ? local.status : (item.status || 'Pendente');
+      if (st !== 'Validada') return;
+      // Usa a categoria oficial da sessão se disponível; senão a categoria do item
+      const cat = (local && local.categoria_validada) || item.categoria_original || 'Sem categoria (revisão posterior)';
       porCategoriaValidada[cat] = (porCategoriaValidada[cat] || 0) + 1;
     });
+
     return {
       total, validadas, pendentes, emRevisao, necessitaRevisao,
       pctConcluido: total ? Math.round((validadas / total) * 100) : 0,
@@ -1903,9 +1918,19 @@ function showToast(msg){
    ============================================================ */
 const ListaState = { search: '', filters: { regional:new Set(), franquia:new Set(), categoria:new Set(), status:new Set() } };
 
+/**
+ * Retorna o status efetivo de uma iniciativa.
+ * Fonte primária: o campo `status` que vem do SharePoint via payload normalizado
+ * (reflete o que foi persistido em execuções anteriores, inclusive de outras sessões).
+ * Fonte secundária: o ValidationRepository da sessão atual — sobrescreve o status do
+ * SharePoint se o curador tocou nesse item nesta sessão (rascunho ou validação nova).
+ */
 function statusOf(id){
-  const v = ValidationRepository.getById(id);
-  return v ? v.status : 'Pendente';
+  const sesssaoLocal = ValidationRepository.getById(id);
+  if(sesssaoLocal) return sesssaoLocal.status;
+  // Fallback: status real vindo do SharePoint (campo normalizado pelo Select do fluxo)
+  const item = RAW_DATA.find(d => d.id === id);
+  return item ? (item.status || 'Pendente') : 'Pendente';
 }
 
 function uniqueSortedVals(arr){ return [...new Set(arr.filter(x=>x!==''&&x!==null&&x!==undefined))].sort((a,b)=>String(a).localeCompare(String(b),'pt-BR')); }
