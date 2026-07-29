@@ -150,7 +150,13 @@ header.hdr{
 .bar-row .blabel{width:150px;flex-shrink:0;color:var(--gd);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .bar-track{flex:1;background:var(--bg);border-radius:6px;height:15px;overflow:hidden;}
 .bar-fill{height:100%;border-radius:6px;transition:width .6s cubic-bezier(.2,.8,.2,1);background:linear-gradient(90deg,var(--p),var(--t));}
-.bar-val{width:38px;text-align:right;font-weight:700;color:var(--pd);font-size:12px;}
+.cinco-estrelas-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;margin-top:10px;}
+.cinco-estrelas-card{background:var(--bg);border:1px solid var(--gl);border-radius:12px;padding:14px 16px;}
+.cinco-estrelas-card .cs-nome{font-family:'Sora',sans-serif;font-weight:800;font-size:13.5px;color:var(--pd);margin-bottom:6px;}
+.cinco-estrelas-card .cs-meta{font-size:12px;color:var(--gm);margin-bottom:4px;}
+.cinco-estrelas-card .cs-meta b{color:var(--dt);}
+.cinco-estrelas-card .cs-parecer{font-size:12px;color:var(--dt);margin-top:8px;border-top:1px solid var(--gl);padding-top:8px;line-height:1.5;}
+.cs-stars{color:#F5A623;font-size:16px;letter-spacing:1px;margin-bottom:6px;}
 .regional-group{margin-bottom:14px;border:1px solid var(--gl);border-radius:12px;padding:12px 14px;}
 .regional-group summary{display:flex;justify-content:space-between;align-items:center;cursor:pointer;list-style:none;font-family:'Sora',sans-serif;font-weight:800;font-size:13px;color:var(--pd);}
 .regional-group summary::-webkit-details-marker{display:none;}
@@ -689,6 +695,11 @@ textarea.obs-field:focus, .edit-select:focus{outline:none;border-color:var(--t);
           <h3>Nota de Reconhecimento</h3><div class="cap">Distribuição das estrelas atribuídas nas iniciativas validadas</div>
           <div id="indNotaReconhecimento"></div>
         </div>
+        <div class="card chart-card" style="margin-top:16px;">
+          <h3><svg class="icon" viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0V4z"/><path d="M8 5H5a3 3 0 0 0 3 4"/><path d="M16 5h3a3 3 0 0 1-3 4"/><path d="M12 13v4"/><path d="M9 21h6"/><path d="M10 17h4l.5 4h-5z"/></svg> Projetos com 5 Estrelas – Análise de Reconhecimento</h3>
+          <div class="cap">Iniciativas candidatas ao reconhecimento — nota máxima atribuída na curadoria</div>
+          <div id="indCincoEstrelas"></div>
+        </div>
       </section>
 
     </main>
@@ -1194,10 +1205,14 @@ const ValidationService = (function () {
     // Repositório da sessão — sobrescreve o status do SharePoint para itens tocados agora
     const validationsById = new Map(validations.map((v) => [v.id, v]));
 
-    // Para cada item, o status autoritativo é: sessão local se existir, senão item.status do SharePoint
+    // Para cada item, o status autoritativo é: sessão local se existir, senão item.status do SharePoint.
+    // REGRA: categoria oficial "Sem categoria (revisão posterior)" → sempre "Necessita revisão".
     function statusEfetivo(item) {
       const local = validationsById.get(item.id);
-      return local ? local.status : (item.status || 'Pendente');
+      const catOficial = (local && local.categoria_validada) || item.categoria_validada || null;
+      if(catOficial === 'Sem categoria (revisão posterior)') return 'Necessita revisão';
+      const local2 = validationsById.get(item.id);
+      return local2 ? local2.status : (item.status || 'Pendente');
     }
 
     let validadas = 0, emRevisao = 0, necessitaRevisao = 0, pendentes = 0;
@@ -2002,16 +2017,24 @@ const ListaState = { search: '', filters: { regional:new Set(), franquia:new Set
 
 /**
  * Retorna o status efetivo de uma iniciativa.
- * Fonte primária: o campo `status` que vem do SharePoint via payload normalizado
- * (reflete o que foi persistido em execuções anteriores, inclusive de outras sessões).
- * Fonte secundária: o ValidationRepository da sessão atual — sobrescreve o status do
- * SharePoint se o curador tocou nesse item nesta sessão (rascunho ou validação nova).
+ * REGRA: se a categoria oficial definida na curadoria for
+ * "Sem categoria (revisão posterior)", o status é sempre "Necessita revisão",
+ * independentemente do campo status gravado no SharePoint.
  */
 function statusOf(id){
-  const sesssaoLocal = ValidationRepository.getById(id);
-  if(sesssaoLocal) return sesssaoLocal.status;
-  // Fallback: status real vindo do SharePoint (campo normalizado pelo Select do fluxo)
+  const sessaoLocal = ValidationRepository.getById(id);
   const item = RAW_DATA.find(d => d.id === id);
+
+  // Determina a categoria oficial: sessão local tem precedência
+  const catOficial = (sessaoLocal && sessaoLocal.categoria_validada)
+    || (item && item.categoria_validada)
+    || null;
+
+  // Aplica a regra de negócio: sem categoria = necessita revisão
+  if(catOficial === 'Sem categoria (revisão posterior)') return 'Necessita revisão';
+
+  // Status normal: sessão local tem precedência sobre o campo vindo do SharePoint
+  if(sessaoLocal) return sessaoLocal.status;
   return item ? (item.status || 'Pendente') : 'Pendente';
 }
 
@@ -2019,9 +2042,8 @@ function uniqueSortedVals(arr){ return [...new Set(arr.filter(x=>x!==''&&x!==nul
 
 function buildListaFilterPanel(){
   const regionais = uniqueSortedVals(RAW_DATA.map(d=>d.regional));
-  // Categorias do filtro = as 5 categorias OFICIAIS da curadoria (não a categoria que
-  // a franquia informou no cadastro, que é só uma sugestão inicial e pode divergir).
-  const categorias = MASTER.categorias.filter(c => c !== 'Sem categoria (revisão posterior)');
+  // Categorias do filtro = as 5 categorias OFICIAIS + "Sem categoria (revisão posterior)"
+  const categorias = MASTER.categorias;
   const statusList = MASTER.statusCentral;
 
   function groupHtml(title, field, values, openDefault){
@@ -2220,7 +2242,52 @@ function renderIndicadores(){
       <div class="kv"><div class="k">Tocadas nesta sessão</div><div class="v">${validations.length}</div></div>
     </div>
   `;
+
+  renderCincoEstrelas('indCincoEstrelas', validations, validationsById);
 }
+
+/**
+ * Renderiza a seção "Projetos com 5 Estrelas – Análise de Reconhecimento".
+ * Lista todas as iniciativas que receberam nota 5, com dados da curadoria.
+ */
+function renderCincoEstrelas(containerId, validations, validationsById){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+
+  // Coleta iniciativas com nota 5 — sessão local e SharePoint
+  const candidatas = RAW_DATA.filter(item => {
+    const local = validationsById ? validationsById.get(item.id) : null;
+    const nota = (local && (local.potencial_reconhecimento || local.nota))
+              || item.nota_reconhecimento
+              || 0;
+    return Number(nota) === 5;
+  });
+
+  if(!candidatas.length){
+    el.innerHTML = '<div style="font-size:12.5px;color:var(--gm);padding:8px 0;">Nenhuma iniciativa com nota 5 encontrada até o momento.</div>';
+    return;
+  }
+
+  el.innerHTML = `<div class="cinco-estrelas-grid">${candidatas.map(item => {
+    const local = validationsById ? validationsById.get(item.id) : null;
+    const catOficial = (local && local.categoria_validada) || item.categoria_validada || '—';
+    const beneficio = (item.beneficios_chips || item.beneficios_desc || '').split(',')[0].trim() || '—';
+    const responsavel = item.responsavel || '—';
+    const parecer = (local && local.parecer_curadoria) || item.parecer_curadoria || '';
+    return `<div class="cinco-estrelas-card">
+      <div class="cs-stars">★★★★★</div>
+      <div class="cs-nome">${esc(item.nome || '(Sem nome)')}</div>
+      <div class="cs-meta"><b>Franquia:</b> ${esc(item.franquia || '—')}</div>
+      <div class="cs-meta"><b>Regional:</b> ${esc((item.regional || '—').replace('Regional ',''))}</div>
+      <div class="cs-meta"><b>Categoria Oficial:</b> ${esc(catOficial)}</div>
+      <div class="cs-meta"><b>Benefício Principal:</b> ${esc(beneficio)}</div>
+      ${responsavel !== '—' ? `<div class="cs-meta"><b>Responsável:</b> ${esc(responsavel)}</div>` : ''}
+      ${parecer ? `<div class="cs-parecer"><b>Parecer:</b> ${esc(parecer)}</div>` : ''}
+    </div>`;
+  }).join('')}</div>`;
+}
+
+
 
 /**
  * Renderiza um gráfico de pizza SVG simples dentro de um container.
