@@ -313,7 +313,22 @@ tbody tr:last-child td{border-bottom:none;}
 .drawer-section.plain{border:none;}
 .drawer-section.plain .lab{background:none;color:var(--gm);padding:0 0 8px;}
 .drawer-section.plain .txt{padding:0;}
-.kv-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:13px;}
+.ind-kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
+.ind-kpi{border-radius:12px;padding:14px 16px;text-align:center;}
+.ind-kpi .ik-label{font-size:11px;font-weight:700;margin-bottom:6px;}
+.ind-kpi .ik-val{font-size:28px;font-weight:800;line-height:1;}
+.ind-kpi.ik-azul{background:#E8F4F8;color:#1A6B8A;}
+.ind-kpi.ik-verde{background:#E6F4EA;color:#1A6B3A;}
+.ind-kpi.ik-laranja{background:#FDE8E0;color:#B03A1A;}
+.ind-kpi.ik-amarelo{background:#FEF6DC;color:#8A6A00;}
+.ind-tabelas{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:4px;}
+.ind-tabela h4{font-family:'Sora',sans-serif;font-weight:800;font-size:13px;color:var(--pd);margin:0 0 8px 0;}
+.ind-tabela table{width:100%;border-collapse:collapse;font-size:12px;}
+.ind-tabela th{background:var(--p);color:#fff;padding:6px 10px;text-align:left;font-weight:700;}
+.ind-tabela td{padding:5px 10px;border-bottom:1px solid var(--gl);color:var(--dt);}
+.ind-tabela tr:last-child td{border-bottom:none;}
+.ind-tabela tr:nth-child(even) td{background:var(--bg);}
+@media(max-width:700px){.ind-kpi-row{grid-template-columns:1fr 1fr;}.ind-tabelas{grid-template-columns:1fr;}}
 .kv{background:var(--bg);border-radius:9px;padding:10px 12px;}
 .kv .k{font-size:10.5px;color:var(--gm);font-weight:700;margin-bottom:3px;}
 .kv .v{font-size:13px;color:var(--pd);font-weight:700;}
@@ -1134,6 +1149,8 @@ const ValidationService = (function () {
     if (v) return v.status === 'Validada';
     // Fallback: status real que veio do SharePoint via payload normalizado
     const item = (rawData || []).find(d => d.id === id);
+    // "Sem Iniciativa" é excluído da fila de curadoria — não há o que curar
+    if (item && item.status === 'Sem Iniciativa') return true;
     return !!item && item.status === 'Validada';
   }
 
@@ -1205,18 +1222,21 @@ const ValidationService = (function () {
     // Repositório da sessão — sobrescreve o status do SharePoint para itens tocados agora
     const validationsById = new Map(validations.map((v) => [v.id, v]));
 
+    // Itens "Sem Iniciativa" são excluídos dos contadores de curadoria —
+    // aparecem apenas nos indicadores de diagnóstico (Total de Respostas, Sem Iniciativas).
+    const dadosCuradoria = rawData.filter(d => (d.status || '') !== 'Sem Iniciativa');
+
     // Para cada item, o status autoritativo é: sessão local se existir, senão item.status do SharePoint.
     // REGRA: categoria oficial "Sem categoria (revisão posterior)" → sempre "Necessita revisão".
     function statusEfetivo(item) {
       const local = validationsById.get(item.id);
       const catOficial = (local && local.categoria_validada) || item.categoria_validada || null;
       if(catOficial === 'Sem categoria (revisão posterior)') return 'Necessita revisão';
-      const local2 = validationsById.get(item.id);
-      return local2 ? local2.status : (item.status || 'Pendente');
+      return local ? local.status : (item.status || 'Pendente');
     }
 
     let validadas = 0, emRevisao = 0, necessitaRevisao = 0, pendentes = 0;
-    rawData.forEach((item) => {
+    dadosCuradoria.forEach((item) => {
       const st = statusEfetivo(item);
       if (st === 'Validada') validadas++;
       else if (st === 'Necessita revisão') necessitaRevisao++;
@@ -1224,11 +1244,11 @@ const ValidationService = (function () {
       else pendentes++;
     });
 
-    const total = rawData.length;
+    const total = dadosCuradoria.length;
     const porRegional = {};
     const porArea = {};
     const porFranquiaPorRegional = {};
-    rawData.forEach((item) => {
+    dadosCuradoria.forEach((item) => {
       const done = statusEfetivo(item) === 'Validada';
       if (!done) {
         porRegional[item.regional] = (porRegional[item.regional] || 0) + 1;
@@ -2107,6 +2127,8 @@ function buildListaFilterPanel(){
 }
 
 function matchesListaFilters(d){
+  // Itens sem iniciativa não entram na curadoria — excluídos desta tela
+  if((d.status || '') === 'Sem Iniciativa') return false;
   const f = ListaState.filters;
   const st = statusOf(d.id);
   if(f.status.size && !f.status.has(st)) return false;
@@ -2121,8 +2143,9 @@ function matchesListaFilters(d){
 }
 
 function renderListaResults(){
-  const list = RAW_DATA.filter(matchesListaFilters);
-  document.getElementById('listaResultCount').textContent = `${list.length} de ${RAW_DATA.length} iniciativas`;
+  const base = RAW_DATA.filter(d => (d.status || '') !== 'Sem Iniciativa');
+  const list = base.filter(matchesListaFilters);
+  document.getElementById('listaResultCount').textContent = `${list.length} de ${base.length} iniciativas`;
   const el = document.getElementById('listaCardsView');
   if(!list.length){
     el.innerHTML = `<div class="empty-state">${ic('search')}Nenhuma iniciativa encontrada.</div>`;
@@ -2232,14 +2255,97 @@ function renderIndicadores(){
     Object.fromEntries(notaEntries)
   );
 
+  // ── Dashboard de indicadores ──────────────────────────────────────────────
+  // KPIs superiores
+  const totalRespostas  = RAW_DATA.length;
+  const possuemInic     = RAW_DATA.filter(d => (d.possui_iniciativa || '').toLowerCase().startsWith('sim')).length;
+  const semInic         = RAW_DATA.filter(d => (d.possui_iniciativa || '').toLowerCase().startsWith('não') || (d.possui_iniciativa || '').toLowerCase().startsWith('nao')).length;
+  const altaMaturidade  = RAW_DATA.filter(d => {
+    const m = (d.maturidade_digital || '').toLowerCase();
+    return m.includes('alta') || m.includes('muito alta');
+  }).length;
+
+  // Tabela por Regional
+  const REGIONAIS_ORDEM = ['Regional Interior','Regional Centro Sul','Regional SPMG','Regional Equatorial','Regional Costa Leste'];
+  const regStats = {};
+  REGIONAIS_ORDEM.forEach(r => { regStats[r] = { total:0, sim:0, nao:0 }; });
+  RAW_DATA.forEach(d => {
+    const r = d.regional || '';
+    if(!regStats[r]) regStats[r] = { total:0, sim:0, nao:0 };
+    regStats[r].total++;
+    const pi = (d.possui_iniciativa || '').toLowerCase();
+    if(pi.startsWith('sim')) regStats[r].sim++;
+    else if(pi.startsWith('não') || pi.startsWith('nao')) regStats[r].nao++;
+  });
+  const regRows = Object.entries(regStats)
+    .filter(([,v]) => v.total > 0)
+    .sort((a,b) => b[1].total - a[1].total)
+    .map(([reg, v]) =>
+      `<tr><td>${esc(reg)}</td><td style="text-align:center">${v.total}</td><td style="text-align:center">${v.sim} Sim / ${v.nao} Não</td></tr>`
+    ).join('');
+
+  // Tabela de Maturidade Digital
+  const MATURIDADE_NIVEIS = [
+    { label: 'Muito baixa (Nenhuma iniciativa digital implementada)', keys: ['muito baixa','nenhuma'] },
+    { label: 'Baixa (Entre 1 e 2 iniciativas digitais)',               keys: ['baixa'] },
+    { label: 'Média (Entre 3 e 4 iniciativas digitais)',               keys: ['média','media'] },
+    { label: 'Alta (Entre 5 e 6 iniciativas digitais)',                keys: ['alta'] },
+    { label: 'Muito alta (Mais de 6 iniciativas digitais)',            keys: ['muito alta'] },
+  ];
+  const matCount = {};
+  RAW_DATA.forEach(d => {
+    const m = (d.maturidade_digital || '').trim();
+    if(!m) return;
+    matCount[m] = (matCount[m] || 0) + 1;
+  });
+  // Agrupa pelo nível correspondente
+  const matRows = MATURIDADE_NIVEIS.map(nivel => {
+    let qtd = 0;
+    Object.entries(matCount).forEach(([key, cnt]) => {
+      const kl = key.toLowerCase();
+      // Muito alta deve ser checada antes de Alta
+      if(nivel.keys.includes('muito alta') && kl.includes('muito alta')) { qtd += cnt; return; }
+      if(nivel.keys.includes('muito baixa') && kl.includes('muito baixa')) { qtd += cnt; return; }
+      if(nivel.keys.includes('muito alta') || nivel.keys.includes('muito baixa')) return; // já tratado
+      if(nivel.keys.some(k => kl.includes(k) && !kl.includes('muito'))) qtd += cnt;
+    });
+    return `<tr><td>${esc(nivel.label)}</td><td style="text-align:center">${qtd}</td></tr>`;
+  }).join('');
+
   document.getElementById('indResumoTexto').innerHTML = `
-    <div class="kv-grid" style="grid-template-columns:repeat(3,1fr);">
-      <div class="kv"><div class="k">Total de Iniciativas</div><div class="v">${RAW_DATA.length}</div></div>
-      <div class="kv"><div class="k">Validadas</div><div class="v">${totalValidadas}</div></div>
-      <div class="kv"><div class="k">Pendentes</div><div class="v">${totalPendentes}</div></div>
-      <div class="kv"><div class="k">Em Revisão</div><div class="v">${totalEmRevisao}</div></div>
-      <div class="kv"><div class="k">Versões nesta sessão</div><div class="v">${allVersions.length}</div></div>
-      <div class="kv"><div class="k">Tocadas nesta sessão</div><div class="v">${validations.length}</div></div>
+    <div class="ind-kpi-row">
+      <div class="ind-kpi ik-azul">
+        <div class="ik-label">Total de Respostas</div>
+        <div class="ik-val">${totalRespostas}</div>
+      </div>
+      <div class="ind-kpi ik-verde">
+        <div class="ik-label">Possuem Iniciativas</div>
+        <div class="ik-val">${possuemInic}</div>
+      </div>
+      <div class="ind-kpi ik-laranja">
+        <div class="ik-label">Sem Iniciativas</div>
+        <div class="ik-val">${semInic}</div>
+      </div>
+      <div class="ind-kpi ik-amarelo">
+        <div class="ik-label">Alta/Muito Alta Maturidade</div>
+        <div class="ik-val">${altaMaturidade}</div>
+      </div>
+    </div>
+    <div class="ind-tabelas">
+      <div class="ind-tabela">
+        <h4>Respostas por Regional</h4>
+        <table>
+          <thead><tr><th>Regional</th><th style="text-align:center">Respostas</th><th style="text-align:center">Possui Iniciativas?</th></tr></thead>
+          <tbody>${regRows || '<tr><td colspan="3" style="color:var(--gm)">Sem dados</td></tr>'}</tbody>
+        </table>
+      </div>
+      <div class="ind-tabela">
+        <h4>Distribuição de Maturidade Digital</h4>
+        <table>
+          <thead><tr><th>Nível</th><th style="text-align:center">Quantidade</th></tr></thead>
+          <tbody>${matRows}</tbody>
+        </table>
+      </div>
     </div>
   `;
 
