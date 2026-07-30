@@ -674,7 +674,7 @@ textarea.obs-field:focus, .edit-select:focus{outline:none;border-color:var(--t);
           </div>
         </div>
         <div class="card chart-card">
-          <h3>Pendências por Franquia em cada Regional</h3><div class="cap">Clique numa regional para ver as franquias com iniciativas ainda não validadas</div>
+          <h3>Pendências por Franquia em cada Regional</h3><div class="cap">Clique numa regional para ver as franquias e suas iniciativas</div>
           <div id="chartFranquiaPorRegional"></div>
         </div>
       </section>
@@ -1279,6 +1279,19 @@ const ValidationService = (function () {
         porRegional[item.regional] = (porRegional[item.regional] || 0) + 1;
         const area = item._areaSugerida || 'Operações';
         porArea[area] = (porArea[area] || 0) + 1;
+      }
+    });
+
+    // Franquias sem iniciativa (Status = "Sem Iniciativa") — registradas na Lista do SharePoint
+    // mas excluídas de dadosCuradoria. Aparecem no painel com contadores zerados para que
+    // o gestor saiba quais franquias ainda não têm nenhuma iniciativa cadastrada.
+    rawData.filter(d => (d.status || '') === 'Sem Iniciativa').forEach((item) => {
+      const reg = item.regional || 'Sem regional';
+      const fra = item.franquia || 'Sem franquia';
+      if (!porFranquiaPorRegional[reg]) porFranquiaPorRegional[reg] = {};
+      // Só insere se a franquia ainda não apareceu nos dados de curadoria
+      if (!porFranquiaPorRegional[reg][fra]) {
+        porFranquiaPorRegional[reg][fra] = { total: 0, validadas: 0, pendentes: 0 };
       }
     });
 
@@ -2492,14 +2505,59 @@ function renderSimpleBarHtml(obj){
   }).join('');
 }
 
-/* ---------- Exportação — payload idêntico ao futuro schema do Power Automate ---------- */
+/* ---------- Exportação — Excel com dados de Pendências por Franquia em cada Regional ---------- */
 document.getElementById('btnExportar').addEventListener('click', ()=>{
-  const payload = ValidationRepository.exportPayload();
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+  const stats = ValidationService.dashboardStats(RAW_DATA, ValidationRepository.getAllValidations());
+  const pfr = stats.porFranquiaPorRegional;
+
+  // Cabeçalho
+  const linhas = [
+    ['Regional', 'Franquia', 'Cadastradas', 'Validadas', 'Pendentes', '% Validadas'],
+  ];
+
+  // Monta linhas — mesma ordem de renderFranquiaPorRegional (por pendentes desc)
+  const regionais = Object.entries(pfr)
+    .filter(([reg]) => reg && reg !== 'Sem regional')
+    .sort((a, b) => {
+      const pendA = Object.values(a[1]).reduce((s, v) => s + v.pendentes, 0);
+      const pendB = Object.values(b[1]).reduce((s, v) => s + v.pendentes, 0);
+      return pendB - pendA;
+    });
+
+  regionais.forEach(([regional, franquias]) => {
+    const franquiaEntries = Object.entries(franquias)
+      .sort((a, b) => b[1].pendentes - a[1].pendentes || b[1].total - a[1].total);
+
+    // Linha de subtotal da regional
+    const totReg = franquiaEntries.reduce((s, [,v]) => s + v.total, 0);
+    const valReg = franquiaEntries.reduce((s, [,v]) => s + v.validadas, 0);
+    const pendReg = franquiaEntries.reduce((s, [,v]) => s + v.pendentes, 0);
+    const pctReg = totReg ? Math.round(valReg / totReg * 100) : 0;
+    linhas.push([regional, '(Total Regional)', totReg, valReg, pendReg, `${pctReg}%`]);
+
+    franquiaEntries.forEach(([franquia, v]) => {
+      const pct = v.total ? Math.round(v.validadas / v.total * 100) : 0;
+      linhas.push([regional, franquia, v.total, v.validadas, v.pendentes, `${pct}%`]);
+    });
+
+    linhas.push([]); // linha em branco entre regionais
+  });
+
+  // Gera CSV com separador ";" (padrão Excel pt-BR) e BOM UTF-8
+  const bom = '\uFEFF';
+  const csv = bom + linhas.map(row =>
+    row.map(cell => {
+      const s = String(cell === undefined || cell === null ? '' : cell);
+      // Escapa campos com vírgula, ponto-e-vírgula, aspas ou quebra de linha
+      return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    }).join(';')
+  ).join('\r\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `Validacoes_Central_${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `Pendencias_por_Franquia_${new Date().toISOString().slice(0,10)}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
