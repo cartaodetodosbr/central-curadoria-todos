@@ -2512,8 +2512,14 @@ document.getElementById('btnExportar').addEventListener('click', ()=>{
 
   // Cabeçalho
   const linhas = [
-    ['Regional', 'Franquia', 'Cadastradas', 'Validadas', 'Pendentes', '% Validadas'],
+    ['Regional', 'Franquia', 'Tipo', 'Cadastradas', 'Validadas', 'Pendentes', '% Validadas'],
   ];
+
+  // Índice franquia → tipo_franquia a partir do RAW_DATA
+  const tipoFranquia = {};
+  RAW_DATA.forEach(d => {
+    if (d.franquia && d.tipo_franquia) tipoFranquia[d.franquia] = d.tipo_franquia;
+  });
 
   // Monta linhas — mesma ordem de renderFranquiaPorRegional (por pendentes desc)
   const regionais = Object.entries(pfr)
@@ -2528,16 +2534,17 @@ document.getElementById('btnExportar').addEventListener('click', ()=>{
     const franquiaEntries = Object.entries(franquias)
       .sort((a, b) => b[1].pendentes - a[1].pendentes || b[1].total - a[1].total);
 
-    // Linha de subtotal da regional
+    // Linha de subtotal da regional (sem tipo)
     const totReg = franquiaEntries.reduce((s, [,v]) => s + v.total, 0);
     const valReg = franquiaEntries.reduce((s, [,v]) => s + v.validadas, 0);
     const pendReg = franquiaEntries.reduce((s, [,v]) => s + v.pendentes, 0);
     const pctReg = totReg ? Math.round(valReg / totReg * 100) : 0;
-    linhas.push([regional, '(Total Regional)', totReg, valReg, pendReg, `${pctReg}%`]);
+    linhas.push([regional, '(Total Regional)', '', totReg, valReg, pendReg, `${pctReg}%`]);
 
     franquiaEntries.forEach(([franquia, v]) => {
       const pct = v.total ? Math.round(v.validadas / v.total * 100) : 0;
-      linhas.push([regional, franquia, v.total, v.validadas, v.pendentes, `${pct}%`]);
+      const tipo = tipoFranquia[franquia] || '';
+      linhas.push([regional, franquia, tipo, v.total, v.validadas, v.pendentes, `${pct}%`]);
     });
 
     linhas.push([]); // linha em branco entre regionais
