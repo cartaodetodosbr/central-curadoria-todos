@@ -674,7 +674,7 @@ textarea.obs-field:focus, .edit-select:focus{outline:none;border-color:var(--t);
           </div>
         </div>
         <div class="card chart-card">
-          <h3>Pendências por Franquia em cada Regional</h3><div class="cap">Clique numa regional para ver as franquias e suas iniciativas</div>
+          <h3>Iniciativas por Franquia em cada Regional</h3><div class="cap">Clique numa regional para ver as franquias e suas iniciativas</div>
           <div id="chartFranquiaPorRegional"></div>
         </div>
       </section>
@@ -1644,48 +1644,40 @@ function renderFranquiaPorRegional(containerId, porFranquiaPorRegional){
       </div>
     </div>` : '';
 
-  // Monta resumo por regional: soma de todos os { total, validadas, pendentes } das franquias
+  // Monta resumo por regional: apenas total de iniciativas cadastradas por franquia
   const regionais = Object.entries(porFranquiaPorRegional)
     .filter(([reg]) => reg && reg !== 'Sem regional')
     .map(([regional, franquias]) => {
       const franquiaEntries = Object.entries(franquias)
-        .sort((a, b) => b[1].pendentes - a[1].pendentes || b[1].total - a[1].total);
+        .sort((a, b) => b[1].total - a[1].total); // mais iniciativas primeiro; zeradas no fim
       const totReg = franquiaEntries.reduce((s, [,v]) => s + v.total, 0);
-      const valReg = franquiaEntries.reduce((s, [,v]) => s + v.validadas, 0);
-      const pendReg = franquiaEntries.reduce((s, [,v]) => s + v.pendentes, 0);
-      return { regional, franquiaEntries, totReg, valReg, pendReg };
+      return { regional, franquiaEntries, totReg };
     })
-    .sort((a, b) => b.pendReg - a.pendReg || b.totReg - a.totReg);
+    .sort((a, b) => b.totReg - a.totReg);
 
   if(!regionais.length){
     el.innerHTML = avisoHtml + '<div style="font-size:12.5px;color:var(--gm);">Nenhum dado disponível.</div>';
     return;
   }
 
-  el.innerHTML = avisoHtml + regionais.map(({ regional, franquiaEntries, totReg, valReg, pendReg }) => {
+  el.innerHTML = avisoHtml + regionais.map(({ regional, franquiaEntries, totReg }) => {
     const rows = franquiaEntries.map(([franquia, v]) => `
       <tr>
         <td>${esc(franquia)}</td>
         <td class="num ${v.total === 0 ? 'zero' : ''}">${v.total}</td>
-        <td class="num ok ${v.validadas === 0 ? 'zero' : ''}">${v.validadas}</td>
-        <td class="num pend ${v.pendentes === 0 ? 'zero' : ''}">${v.pendentes}</td>
       </tr>`).join('');
 
     return `<details class="regional-group">
       <summary>
         <span>${esc(regional)}</span>
         <span class="rg-summary-chips">
-          <span class="rg-chip-stat rg-chip-total">${totReg} cadastradas</span>
-          <span class="rg-chip-stat rg-chip-val">${valReg} validadas</span>
-          <span class="rg-chip-stat rg-chip-pend">${pendReg} pendentes</span>
+          <span class="rg-chip-stat rg-chip-total">${totReg} iniciativas</span>
         </span>
       </summary>
       <table class="fra-table">
         <thead><tr>
           <th>Franquia</th>
-          <th class="num">Cadastradas</th>
-          <th class="num">Validadas</th>
-          <th class="num">Pendentes</th>
+          <th class="num">Iniciativas</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
@@ -2512,7 +2504,7 @@ document.getElementById('btnExportar').addEventListener('click', ()=>{
 
   // Cabeçalho
   const linhas = [
-    ['Regional', 'Franquia', 'Tipo', 'Cadastradas', 'Validadas', 'Pendentes', '% Validadas'],
+    ['Regional', 'Franquia', 'Tipo', 'Total de Iniciativas'],
   ];
 
   // Índice franquia → tipo_franquia a partir do RAW_DATA
@@ -2521,30 +2513,26 @@ document.getElementById('btnExportar').addEventListener('click', ()=>{
     if (d.franquia && d.tipo_franquia) tipoFranquia[d.franquia] = d.tipo_franquia;
   });
 
-  // Monta linhas — mesma ordem de renderFranquiaPorRegional (por pendentes desc)
+  // Monta linhas — mesma ordem de renderFranquiaPorRegional (por total desc)
   const regionais = Object.entries(pfr)
     .filter(([reg]) => reg && reg !== 'Sem regional')
     .sort((a, b) => {
-      const pendA = Object.values(a[1]).reduce((s, v) => s + v.pendentes, 0);
-      const pendB = Object.values(b[1]).reduce((s, v) => s + v.pendentes, 0);
-      return pendB - pendA;
+      const totA = Object.values(a[1]).reduce((s, v) => s + v.total, 0);
+      const totB = Object.values(b[1]).reduce((s, v) => s + v.total, 0);
+      return totB - totA;
     });
 
   regionais.forEach(([regional, franquias]) => {
     const franquiaEntries = Object.entries(franquias)
-      .sort((a, b) => b[1].pendentes - a[1].pendentes || b[1].total - a[1].total);
+      .sort((a, b) => b[1].total - a[1].total);
 
-    // Linha de subtotal da regional (sem tipo)
+    // Linha de subtotal da regional
     const totReg = franquiaEntries.reduce((s, [,v]) => s + v.total, 0);
-    const valReg = franquiaEntries.reduce((s, [,v]) => s + v.validadas, 0);
-    const pendReg = franquiaEntries.reduce((s, [,v]) => s + v.pendentes, 0);
-    const pctReg = totReg ? Math.round(valReg / totReg * 100) : 0;
-    linhas.push([regional, '(Total Regional)', '', totReg, valReg, pendReg, `${pctReg}%`]);
+    linhas.push([regional, '(Total Regional)', '', totReg]);
 
     franquiaEntries.forEach(([franquia, v]) => {
-      const pct = v.total ? Math.round(v.validadas / v.total * 100) : 0;
       const tipo = tipoFranquia[franquia] || '';
-      linhas.push([regional, franquia, tipo, v.total, v.validadas, v.pendentes, `${pct}%`]);
+      linhas.push([regional, franquia, tipo, v.total]);
     });
 
     linhas.push([]); // linha em branco entre regionais
