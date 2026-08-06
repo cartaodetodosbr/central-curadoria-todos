@@ -663,16 +663,10 @@ textarea.obs-field:focus, .edit-select:focus{outline:none;border-color:var(--t);
         </div>
         <div class="kpi-grid" id="kpiGrid"></div>
 
-        <div class="chart-grid">
-          <div class="card chart-card">
+        <div class="card chart-card">
             <h3>Validados por Categoria</h3><div class="cap">Categorização oficial definida na curadoria</div>
             <div id="chartValidadosPorCategoria"></div>
           </div>
-          <div class="card chart-card">
-            <h3>Pendentes por Regional</h3><div class="cap">&nbsp;</div>
-            <div id="chartPorRegional"></div>
-          </div>
-        </div>
         <div class="card chart-card">
           <h3>Franquias por Regional</h3><div class="cap">Clique numa regional para ver as franquias e quantas iniciativas cada uma possui</div>
           <div id="chartFranquiaPorRegional"></div>
@@ -1589,10 +1583,6 @@ function renderDashboard(){
   }
   renderBarList('chartValidadosPorCategoria', catValidadasEntries);
 
-  renderBarList('chartPorRegional', Object.entries(stats.porRegional)
-    .filter(([k]) => k && k !== 'Sem regional')
-    .sort((a,b)=>b[1]-a[1])
-    .map(([k,v])=>[k.replace('Regional ',''),v]));
   renderFranquiaPorRegional('chartFranquiaPorRegional', stats.porFranquiaPorRegional);
 
   const ultima = validations.length ? validations.reduce((a,b)=> a.data_hora > b.data_hora ? a : b).data_hora : null;
