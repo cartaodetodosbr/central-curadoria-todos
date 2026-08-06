@@ -674,7 +674,7 @@ textarea.obs-field:focus, .edit-select:focus{outline:none;border-color:var(--t);
           </div>
         </div>
         <div class="card chart-card">
-          <h3>Iniciativas por Franquia em cada Regional</h3><div class="cap">Clique numa regional para ver as franquias e suas iniciativas</div>
+          <h3>Franquias por Regional</h3><div class="cap">Clique numa regional para ver as franquias e quantas iniciativas cada uma possui</div>
           <div id="chartFranquiaPorRegional"></div>
         </div>
       </section>
@@ -1644,23 +1644,24 @@ function renderFranquiaPorRegional(containerId, porFranquiaPorRegional){
       </div>
     </div>` : '';
 
-  // Monta resumo por regional: apenas total de iniciativas cadastradas por franquia
+  // Monta resumo por regional: quantidade de franquias e total de iniciativas de cada uma
   const regionais = Object.entries(porFranquiaPorRegional)
     .filter(([reg]) => reg && reg !== 'Sem regional')
     .map(([regional, franquias]) => {
       const franquiaEntries = Object.entries(franquias)
         .sort((a, b) => b[1].total - a[1].total); // mais iniciativas primeiro; zeradas no fim
+      const qtdFranquias = franquiaEntries.length;
       const totReg = franquiaEntries.reduce((s, [,v]) => s + v.total, 0);
-      return { regional, franquiaEntries, totReg };
+      return { regional, franquiaEntries, qtdFranquias, totReg };
     })
-    .sort((a, b) => b.totReg - a.totReg);
+    .sort((a, b) => b.qtdFranquias - a.qtdFranquias);
 
   if(!regionais.length){
     el.innerHTML = avisoHtml + '<div style="font-size:12.5px;color:var(--gm);">Nenhum dado disponível.</div>';
     return;
   }
 
-  el.innerHTML = avisoHtml + regionais.map(({ regional, franquiaEntries, totReg }) => {
+  el.innerHTML = avisoHtml + regionais.map(({ regional, franquiaEntries, qtdFranquias, totReg }) => {
     const rows = franquiaEntries.map(([franquia, v]) => `
       <tr>
         <td>${esc(franquia)}</td>
@@ -1671,7 +1672,8 @@ function renderFranquiaPorRegional(containerId, porFranquiaPorRegional){
       <summary>
         <span>${esc(regional)}</span>
         <span class="rg-summary-chips">
-          <span class="rg-chip-stat rg-chip-total">${totReg} iniciativas</span>
+          <span class="rg-chip-stat rg-chip-total">${qtdFranquias} franquias</span>
+          <span class="rg-chip-stat rg-chip-val">${totReg} iniciativas</span>
         </span>
       </summary>
       <table class="fra-table">
