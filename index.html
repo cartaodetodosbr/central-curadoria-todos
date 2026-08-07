@@ -1618,39 +1618,43 @@ const ValidationService = (function () {
       return porFranquiaPorRegional[reg][bucket][chave];
     }
 
-    dadosCuradoria.forEach((item) => {
+    // Usa rawData completo para que o total de iniciativas por regional bata com
+    // o total de respostas da tela de Indicadores. Itens "Sem Iniciativa" entram
+    // com total incrementado mas são exibidos com 0 na coluna da tabela — o campo
+    // `possui_iniciativa` determina se a linha é exibida como iniciativa ou não.
+    rawData.forEach((item) => {
       const reg = item.regional || 'Sem regional';
       const fra = item.franquia || 'Sem franquia';
       const st  = statusEfetivo(item);
 
-      // Decide se a franquia é oficial para essa regional
       const normFra = normalizaFranquia(fra);
       const isOficial = (OFICIAL_POR_REGIONAL[reg] || new Set()).has(normFra);
       const bucket = isOficial ? 'oficiais' : 'naoId';
-      // Para oficiais usamos o nome normalizado como chave (agrupa variações)
       const chave = isOficial ? normFra : fra;
 
       const entry = getOrCreate(reg, bucket, chave);
-      entry.total++;
-      if (st === 'Validada') entry.validadas++;
-      else entry.pendentes++;
+      // Só incrementa total para itens que possuem iniciativa
+      const possuiInic = (item.possui_iniciativa || '').toLowerCase().startsWith('sim');
+      if (possuiInic) {
+        entry.total++;
+        if (st === 'Validada') entry.validadas++;
+        else entry.pendentes++;
+      }
 
-      if (st !== 'Validada') {
+      if (st !== 'Validada' && (item.status || '') !== 'Sem Iniciativa') {
         porRegional[item.regional] = (porRegional[item.regional] || 0) + 1;
         const area = item._areaSugerida || 'Operações';
         porArea[area] = (porArea[area] || 0) + 1;
       }
     });
 
-    // Franquias sem iniciativa (Status = "Sem Iniciativa") — adicionadas no bucket oficial
+    // Franquias sem iniciativa — garante que apareçam na lista com total 0
     rawData.filter(d => (d.status || '') === 'Sem Iniciativa').forEach((item) => {
       const reg = item.regional || 'Sem regional';
-      const fra = item.franquia || 'Sem franquia';
-      const normFra = normalizaFranquia(fra);
+      const normFra = normalizaFranquia(item.franquia || 'Sem franquia');
       if (!porFranquiaPorRegional[reg]) porFranquiaPorRegional[reg] = { oficiais: {}, naoId: {} };
-      if (!porFranquiaPorRegional[reg].oficiais[normFra]) {
+      if (!porFranquiaPorRegional[reg].oficiais[normFra])
         porFranquiaPorRegional[reg].oficiais[normFra] = { total: 0, validadas: 0, pendentes: 0 };
-      }
     });
 
     // Garante que TODAS as franquias do cadastro oficial apareçam (mesmo sem nenhuma iniciativa)
