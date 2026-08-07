@@ -1297,6 +1297,16 @@ function normalizaFranquia(s) {
     if (s.endsWith(sf)) { s = s.slice(0, -sf.length).trim(); break; }
   }
 
+  // ── Passo 2b: dicionário de nomes completos — verificado ANTES da remoção de prefixos
+  // Necessário para casos onde o prefixo + cidade juntos determinam a franquia correta
+  // (ex: "Cartão de TODOS - Penha" → SP PENHA, não RJ PENHA como o genérico "PENHA" daria)
+  const EXCECOES_COMPLETO = {
+    'CARTAO DE TODOS PENHA':         'SP PENHA',
+    'CDT PENHA':                     'SP PENHA',
+    'CARTAO DE TODOS - PENHA':       'SP PENHA',
+  };
+  if (EXCECOES_COMPLETO[s]) return EXCECOES_COMPLETO[s];
+
   // ── Passo 3: remove prefixos conhecidos (iterativamente, do mais longo) ──
   const PREFIXOS = [
     'ADMINISTRADORA DE CARTAO DE TODOS ',
