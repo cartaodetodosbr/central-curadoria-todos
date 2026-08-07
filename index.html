@@ -2010,7 +2010,10 @@ function renderFranquiaPorRegional(containerId, porFranquiaPorRegional){
     .map(([regional, buckets]) => {
       const oficiais = Object.entries(buckets.oficiais || {}).sort((a,b) => b[1].total - a[1].total);
       const naoId    = Object.entries(buckets.naoId    || {}).sort((a,b) => b[1].total - a[1].total);
-      const totReg   = oficiais.reduce((s,[,v]) => s + v.total, 0);
+      // totReg inclui TODAS as iniciativas da regional — identificadas E não identificadas.
+      // Excluir as naoId causaria incompatibilidade com os indicadores da página de Indicadores.
+      const totReg   = oficiais.reduce((s,[,v]) => s + v.total, 0)
+                     + naoId.reduce((s,[,v]) => s + v.total, 0);
       return { regional, oficiais, naoId, totReg, qtdOfic: oficiais.length, qtdNaoId: naoId.length };
     })
     .sort((a,b) => b.qtdOfic - a.qtdOfic);
