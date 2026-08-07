@@ -178,6 +178,8 @@ header.hdr{
 .rg-chip-total{background:var(--tp);color:var(--pd);}
 .rg-chip-val{background:#E6F4EA;color:#1A6B3A;}
 .rg-chip-pend{background:#FDE8E0;color:#B03A1A;}
+.fra-subcat-title{font-family:'Sora',sans-serif;font-weight:800;font-size:11px;color:var(--pd);margin:10px 0 4px 0;padding:3px 8px;background:var(--tp);border-radius:6px;display:inline-block;}
+.fra-subcat-title.nao-id{background:#FEF6DC;color:#8A6A00;}
 
 .heat-grid{display:grid;grid-template-columns:auto repeat(3,1fr);gap:6px;font-size:11.5px;}
 .heat-grid .hcell{padding:12px 6px;text-align:center;border-radius:8px;font-weight:700;color:#fff;}
@@ -1123,6 +1125,342 @@ const ValidationRepository = (function () {
    auditoria. A UI chama este módulo; este módulo chama o Repository.
    ============================================================ */
 
+/* ── Cadastro oficial de franquias (fonte: planilha Franquias x Regional) ──
+   Chaves de regional usam o formato interno do sistema ("Regional SPMG", etc.)
+   para bater diretamente com item.regional que vem do SharePoint.            */
+const CADASTRO_OFICIAL = [
+  ["Regional Centro Sul","ALVORADA"],["Regional Centro Sul","ARAUCARIA"],["Regional Centro Sul","APUCARANA"],
+  ["Regional Centro Sul","ARIQUEMES"],["Regional Centro Sul","BALNEARIO CAMBORIU"],["Regional Centro Sul","BENTO GONCALVES"],
+  ["Regional Centro Sul","BLUMENAU"],["Regional Centro Sul","BRUSQUE"],["Regional Centro Sul","CACADOR"],
+  ["Regional Centro Sul","CACERES"],["Regional Centro Sul","CACHOEIRINHA"],["Regional Centro Sul","CAMPO GRANDE"],
+  ["Regional Centro Sul","CAMPO LARGO"],["Regional Centro Sul","CAMPO MOURAO"],["Regional Centro Sul","CANOAS"],
+  ["Regional Centro Sul","CASCAVEL"],["Regional Centro Sul","CASTRO"],["Regional Centro Sul","CAXIAS DO SUL"],
+  ["Regional Centro Sul","CHAPECO"],["Regional Centro Sul","CIANORTE"],["Regional Centro Sul","COLOMBO"],
+  ["Regional Centro Sul","CONCORDIA"],["Regional Centro Sul","CORNELIO PROCOPIO"],["Regional Centro Sul","CRICIUMIA"],
+  ["Regional Centro Sul","CUIABA"],["Regional Centro Sul","CURITIBA CENTRO"],["Regional Centro Sul","CURITIBA PINHEIRINHO"],
+  ["Regional Centro Sul","CURITIBA PORTAO"],["Regional Centro Sul","DOURADOS"],["Regional Centro Sul","ERECHIM"],
+  ["Regional Centro Sul","FLORIANOPOLIS"],["Regional Centro Sul","FOZ DO IGUACU"],["Regional Centro Sul","FRANCISCO BELTRAO"],
+  ["Regional Centro Sul","GRAVATAI"],["Regional Centro Sul","GUAIBA"],["Regional Centro Sul","GUARAPUAVA"],
+  ["Regional Centro Sul","ITAJAI"],["Regional Centro Sul","JARAGUA DO SUL"],["Regional Centro Sul","JI PARANA"],
+  ["Regional Centro Sul","JOINVILLE"],["Regional Centro Sul","LAGES"],["Regional Centro Sul","LAJEADO"],
+  ["Regional Centro Sul","LONDRINA"],["Regional Centro Sul","MARINGA"],["Regional Centro Sul","MONTENEGRO"],
+  ["Regional Centro Sul","NOVO HAMBURGO"],["Regional Centro Sul","PARANAGUA"],["Regional Centro Sul","PARANAVAI"],
+  ["Regional Centro Sul","PAROBE"],["Regional Centro Sul","PASSO FUNDO"],["Regional Centro Sul","PATO BRANCO"],
+  ["Regional Centro Sul","PELOTAS"],["Regional Centro Sul","PIRAQUARA"],["Regional Centro Sul","PONTA GROSSA"],
+  ["Regional Centro Sul","PONTA PORA"],["Regional Centro Sul","PORTO ALEGRE CENTRO"],["Regional Centro Sul","PORTO ALEGRE NORTE"],
+  ["Regional Centro Sul","PORTO ALEGRE SUL"],["Regional Centro Sul","PORTO VELHO"],["Regional Centro Sul","RIO GRANDE"],
+  ["Regional Centro Sul","RONDONONOPOLIS"],["Regional Centro Sul","SANTA CRUZ DO SUL"],["Regional Centro Sul","SANTA MARIA"],
+  ["Regional Centro Sul","SAO BENTO DO SUL"],["Regional Centro Sul","SAO JOSE"],["Regional Centro Sul","SAO JOSE DOS PINHAIS"],
+  ["Regional Centro Sul","SAO LEOPOLDO"],["Regional Centro Sul","SINOP"],["Regional Centro Sul","SORRISO"],
+  ["Regional Centro Sul","TANGARA DA SERRA"],["Regional Centro Sul","TOLEDO"],["Regional Centro Sul","TRES LAGOAS"],
+  ["Regional Centro Sul","TUBARAO"],["Regional Centro Sul","UMUARAMA"],["Regional Centro Sul","VARZEA GRANDE"],
+  ["Regional Centro Sul","VIAMAO"],["Regional Centro Sul","VILHENA"],
+  ["Regional Costa Leste","ALAGOINHAS"],["Regional Costa Leste","ANGRA DOS REIS"],["Regional Costa Leste","ARACAJU"],
+  ["Regional Costa Leste","ARACUZ"],["Regional Costa Leste","ARARUAMA"],["Regional Costa Leste","ARAPIRACA"],
+  ["Regional Costa Leste","BARRA DE SAO FRANCISCO"],["Regional Costa Leste","BARRA DO PIRAI"],
+  ["Regional Costa Leste","BARREIRAS"],["Regional Costa Leste","BELFORD ROXO"],["Regional Costa Leste","CABO FRIO"],
+  ["Regional Costa Leste","CACHOEIRO DE ITAPEMIRIM"],["Regional Costa Leste","CAMACARI"],
+  ["Regional Costa Leste","CAMPOS DOS GOYTACAZES"],["Regional Costa Leste","CARIACIA"],["Regional Costa Leste","COLATINA"],
+  ["Regional Costa Leste","CRUZ DAS ALMAS"],["Regional Costa Leste","DUQUE DE CAXIAS"],["Regional Costa Leste","ESTANCIA"],
+  ["Regional Costa Leste","EUNAPOLIS"],["Regional Costa Leste","FEIRA DE SANTANA"],["Regional Costa Leste","GUARAPARI"],
+  ["Regional Costa Leste","GUANAMBI"],["Regional Costa Leste","GURIRI"],["Regional Costa Leste","ILHEUS"],
+  ["Regional Costa Leste","ITABORAI"],["Regional Costa Leste","ITABUNA"],["Regional Costa Leste","ITABAIANA"],
+  ["Regional Costa Leste","ITAGUAI"],["Regional Costa Leste","ITAPERUNA"],["Regional Costa Leste","JACOBINA"],
+  ["Regional Costa Leste","JEQUIE"],["Regional Costa Leste","JUAZEIRO"],["Regional Costa Leste","LAGARATO"],
+  ["Regional Costa Leste","LAURO DE FREITAS"],["Regional Costa Leste","LINHARES"],["Regional Costa Leste","MACAE"],
+  ["Regional Costa Leste","MACEIO CENTRO"],["Regional Costa Leste","MACEIO NORTE"],["Regional Costa Leste","MAGE"],
+  ["Regional Costa Leste","MARICA"],["Regional Costa Leste","NITEROI"],["Regional Costa Leste","NOSSA SENHORA DO SOCORRO"],
+  ["Regional Costa Leste","NOVA FRIBURGO"],["Regional Costa Leste","NOVA IGUACU"],["Regional Costa Leste","NOVA VENECIA"],
+  ["Regional Costa Leste","PALMEIRA DOS INDIOS"],["Regional Costa Leste","PAULO AFONSO"],["Regional Costa Leste","PETROPOLIS"],
+  ["Regional Costa Leste","PORTO SEGURO"],["Regional Costa Leste","QUEIMADOS"],["Regional Costa Leste","RESENDE"],
+  ["Regional Costa Leste","RIO DAS OSTRAS"],["Regional Costa Leste","RJ BANGU"],["Regional Costa Leste","RJ CAMPO GRANDE"],
+  ["Regional Costa Leste","RJ CENTRO ZONA SUL"],["Regional Costa Leste","RJ ILHA DO GOVERNADOR"],
+  ["Regional Costa Leste","RJ IRAJA"],["Regional Costa Leste","RJ JACAREPAGUA"],["Regional Costa Leste","RJ MADUREIRA"],
+  ["Regional Costa Leste","RJ MEIER"],["Regional Costa Leste","RJ PENHA"],["Regional Costa Leste","RJ REALENGO"],
+  ["Regional Costa Leste","RJ RECREIO"],["Regional Costa Leste","RJ SANTA CRUZ"],["Regional Costa Leste","SALVADOR CABULA"],
+  ["Regional Costa Leste","SALVADOR CENTRO"],["Regional Costa Leste","SALVADOR LARGO DO TANQUE"],
+  ["Regional Costa Leste","SALVADOR PARIPE"],["Regional Costa Leste","SANTO AMARO"],
+  ["Regional Costa Leste","SANTO ANTONIO DE JESUS"],["Regional Costa Leste","SAO GONCALO"],
+  ["Regional Costa Leste","SAO JOAO DE MERITI"],["Regional Costa Leste","SERRA"],["Regional Costa Leste","SERRA SEDE"],
+  ["Regional Costa Leste","SERRINHA"],["Regional Costa Leste","TEIXEIRA DE FREITAS"],["Regional Costa Leste","TERESOPOLIS"],
+  ["Regional Costa Leste","TRES RIOS"],["Regional Costa Leste","VALENCA"],["Regional Costa Leste","VALENCA RJ"],
+  ["Regional Costa Leste","VIANA"],["Regional Costa Leste","VILA VELHA"],["Regional Costa Leste","VITORIA"],
+  ["Regional Costa Leste","VITORIA DA CONQUISTA"],["Regional Costa Leste","VOLTA REDONDA"],
+  ["Regional Equatorial","ABAETETUBA"],["Regional Equatorial","ACARAU"],["Regional Equatorial","ANANINDEUA"],
+  ["Regional Equatorial","AQUIRAZ"],["Regional Equatorial","ARACATI"],["Regional Equatorial","BALSAS"],
+  ["Regional Equatorial","BARCAENA"],["Regional Equatorial","BELEM BENGUI"],["Regional Equatorial","BELEM CENTRO"],
+  ["Regional Equatorial","BELO JARDIM"],["Regional Equatorial","BOA VISTA"],["Regional Equatorial","BRAGANCA"],
+  ["Regional Equatorial","CABO DE SANTO AGOSTINHO"],["Regional Equatorial","CAMOCIM"],["Regional Equatorial","CAMPINA GRANDE"],
+  ["Regional Equatorial","CAMARAGIBE"],["Regional Equatorial","CANAA DOS CARAJAS"],["Regional Equatorial","CARIRI"],
+  ["Regional Equatorial","CARUARU"],["Regional Equatorial","CASTANHAL"],["Regional Equatorial","CAUCAIA"],
+  ["Regional Equatorial","CAXIAS"],["Regional Equatorial","FORTALEZA CENTRO"],["Regional Equatorial","FORTALEZA REG V"],
+  ["Regional Equatorial","FORTALEZA REG VI"],["Regional Equatorial","GARANHUNS"],["Regional Equatorial","GOIANA"],
+  ["Regional Equatorial","GRAVATA"],["Regional Equatorial","GUARABIRA"],["Regional Equatorial","IGUATU"],
+  ["Regional Equatorial","IMPERATRIZ"],["Regional Equatorial","ITAPIPOCA"],["Regional Equatorial","JABOATAO DOS GUARARAPES"],
+  ["Regional Equatorial","JOAO PESSOA NORTE"],["Regional Equatorial","JOAO PESSOA SUL"],["Regional Equatorial","LIMEIRO"],
+  ["Regional Equatorial","MACAIBA"],["Regional Equatorial","MACAPA"],["Regional Equatorial","MANAUS CENTRO"],
+  ["Regional Equatorial","MANAUS NORTE"],["Regional Equatorial","MARABA"],["Regional Equatorial","MARACANAU"],
+  ["Regional Equatorial","MOSSORO"],["Regional Equatorial","NATAL"],["Regional Equatorial","OLINDA"],
+  ["Regional Equatorial","OURICURI"],["Regional Equatorial","PACAJUS"],["Regional Equatorial","PALMARES"],
+  ["Regional Equatorial","PARAGOMINAS"],["Regional Equatorial","PARNAIABA"],["Regional Equatorial","PARNAMIRIM"],
+  ["Regional Equatorial","PARINTINS"],["Regional Equatorial","PAULISTA"],["Regional Equatorial","PARAUAPEBAS"],
+  ["Regional Equatorial","PATOS"],["Regional Equatorial","PETROLINA"],["Regional Equatorial","PICOS"],
+  ["Regional Equatorial","QUIXADA"],["Regional Equatorial","RECIFE AFOGADOS"],["Regional Equatorial","RECIFE CENTRO"],
+  ["Regional Equatorial","RECIFE ENCRUZILHADA"],["Regional Equatorial","RIO BRANCO"],["Regional Equatorial","RUSSAS"],
+  ["Regional Equatorial","SANTA CRUZ DO CAPIBARIBE"],["Regional Equatorial","SANTAREM"],
+  ["Regional Equatorial","SAO JOSE DE RIBAMAR"],["Regional Equatorial","SAO LUIS"],["Regional Equatorial","SAO LUIS CENTRO"],
+  ["Regional Equatorial","SAPE"],["Regional Equatorial","SERRA TALHADA"],["Regional Equatorial","SOBRAL"],
+  ["Regional Equatorial","SURUBIM"],["Regional Equatorial","TERESINA CENTRO"],["Regional Equatorial","TERESINA LESTE"],
+  ["Regional Equatorial","TIMBAUBA"],["Regional Equatorial","TUCURUI"],["Regional Equatorial","VITORIA DE SANTO ANTAO"],
+  ["Regional Interior","AGUAS LINDAS"],["Regional Interior","AMPARO"],["Regional Interior","ANAPOLIS"],
+  ["Regional Interior","APARECIDA DE GOIANIA"],["Regional Interior","ARAGUAINA"],["Regional Interior","ARARAQUARA"],
+  ["Regional Interior","ARARAS"],["Regional Interior","ARACATUBA"],["Regional Interior","ASSIS"],
+  ["Regional Interior","AVARE"],["Regional Interior","BARRETOS"],["Regional Interior","BATATAIS"],
+  ["Regional Interior","BAURU"],["Regional Interior","BEBEDOURO"],["Regional Interior","BERTIOGA"],
+  ["Regional Interior","BIRIGUI"],["Regional Interior","BOTUCATU"],["Regional Interior","CALDAS NOVAS"],
+  ["Regional Interior","CAMPINAS CENTRO NORTE"],["Regional Interior","CAMPINAS NOROESTE"],["Regional Interior","CAMPINAS SUDOESTE"],
+  ["Regional Interior","CAMPINAS SUL"],["Regional Interior","CATALAO"],["Regional Interior","CATANDUVA"],
+  ["Regional Interior","CEILANDIA"],["Regional Interior","CERQUILHO"],["Regional Interior","COSMOPOLIS"],
+  ["Regional Interior","CRUZEIRO"],["Regional Interior","FERNANDOPOLIS"],["Regional Interior","FORMOSA"],
+  ["Regional Interior","FRANCA"],["Regional Interior","FRANCISCO MORATO"],["Regional Interior","FRANCO DA ROCHA"],
+  ["Regional Interior","GAMA"],["Regional Interior","GOIANIA CENTRO NORTE"],["Regional Interior","GOIANIA NOROESTE"],
+  ["Regional Interior","GOIANIA SUL"],["Regional Interior","GURUPI DIGITAL"],["Regional Interior","HORTOLANDIA"],
+  ["Regional Interior","IBIUNA"],["Regional Interior","IBITINGA"],["Regional Interior","INDAIATUBA"],
+  ["Regional Interior","ITANHAEM"],["Regional Interior","ITAPETININGA"],["Regional Interior","ITAPEVA"],
+  ["Regional Interior","ITU"],["Regional Interior","ITUMBIARA"],["Regional Interior","JAU"],
+  ["Regional Interior","JATAI"],["Regional Interior","JUNDIAI"],["Regional Interior","LEME"],
+  ["Regional Interior","LIMEIRA"],["Regional Interior","LINS"],["Regional Interior","MARILIA"],
+  ["Regional Interior","MOCOCA"],["Regional Interior","MOGI GUACU"],["Regional Interior","OLIMPIA DIGITAL"],
+  ["Regional Interior","OURINHOS"],["Regional Interior","PALMAS"],["Regional Interior","PIRACICABA"],
+  ["Regional Interior","PIRASSUNUNGA"],["Regional Interior","PRAIA GRANDE"],["Regional Interior","PRESIDENTE PRUDENTE"],
+  ["Regional Interior","REGISTRO"],["Regional Interior","RIBEIRAO PRETO"],["Regional Interior","RIO CLARO"],
+  ["Regional Interior","RIO VERDE"],["Regional Interior","SALTO"],["Regional Interior","SAMAMBAIA SUL"],
+  ["Regional Interior","SANTA BARBARA DOESTE"],["Regional Interior","SANTOS"],["Regional Interior","SAO CARLOS"],
+  ["Regional Interior","SAO JOAO DA BOA VISTA"],["Regional Interior","SAO JOAQUIM DA BARRA"],
+  ["Regional Interior","SAO JOSE DO RIO PRETO"],["Regional Interior","SAO ROQUE"],["Regional Interior","SAO SEBASTIAO"],
+  ["Regional Interior","SAO VICENTE"],["Regional Interior","SERTAOZINHO"],["Regional Interior","SOBRADINHO"],
+  ["Regional Interior","SOROCABA"],["Regional Interior","SUMARE"],["Regional Interior","TAGUATINGA"],
+  ["Regional Interior","TAQUARITINGA"],["Regional Interior","TATUI"],["Regional Interior","TUPA"],
+  ["Regional Interior","VALINHOS"],["Regional Interior","VALPARAGISO DE GOIAS"],["Regional Interior","VARZEA PAULISTA"],
+  ["Regional Interior","VOTUPORANGA"],["Regional Interior","VOTORANTIM"],
+  ["Regional SPMG","ALFENAS"],["Regional SPMG","ARAGUARI"],["Regional SPMG","ARAXA"],
+  ["Regional SPMG","ARUJA"],["Regional SPMG","ATIBAIA"],["Regional SPMG","BARBACENA"],
+  ["Regional SPMG","BARUERI"],["Regional SPMG","BETIM"],["Regional SPMG","BH BARREIRO"],
+  ["Regional SPMG","BH CENTRO SUL"],["Regional SPMG","BH OESTE"],["Regional SPMG","BH VENDA NOVA"],
+  ["Regional SPMG","BRAGANCA PAULISTA"],["Regional SPMG","CARATINGA"],["Regional SPMG","CARAGUATATUBA"],
+  ["Regional SPMG","CARAPICUIBA"],["Regional SPMG","CATAGUASES"],["Regional SPMG","CONSELHEIRO LAFAIETE"],
+  ["Regional SPMG","CONTAGEM"],["Regional SPMG","COTIA"],["Regional SPMG","CURVELO"],
+  ["Regional SPMG","DIADEMA"],["Regional SPMG","DIVINOPOLIS"],["Regional SPMG","EMBU DAS ARTES"],
+  ["Regional SPMG","FERRAZ DE VASCONCELOS"],["Regional SPMG","FORMIGA"],["Regional SPMG","GUARATINGUETA"],
+  ["Regional SPMG","GUARULHOS"],["Regional SPMG","GUARULHOS - PIMENTAS"],["Regional SPMG","IBIRITE"],
+  ["Regional SPMG","ITAJUBA"],["Regional SPMG","ITAPECERICA DA SERRA"],["Regional SPMG","ITAPEVI"],
+  ["Regional SPMG","ITAQUAQUECETUBA"],["Regional SPMG","ITAUNA"],["Regional SPMG","ITUIUTABA"],
+  ["Regional SPMG","JACAREI"],["Regional SPMG","JANDIRA"],["Regional SPMG","JUIZ DE FORA"],
+  ["Regional SPMG","LAVRAS"],["Regional SPMG","MANHUACU"],["Regional SPMG","MARIANA"],
+  ["Regional SPMG","MAUA"],["Regional SPMG","MOGI DAS CRUZES"],["Regional SPMG","MONTES CLAROS"],
+  ["Regional SPMG","MURIAE"],["Regional SPMG","NOVA LIMA CENTRO"],["Regional SPMG","NOVA SERRANA"],
+  ["Regional SPMG","OSASCO"],["Regional SPMG","PARA DE MINAS"],["Regional SPMG","PARACATU"],
+  ["Regional SPMG","PASSOS"],["Regional SPMG","PATOS DE MINAS"],["Regional SPMG","PATROCINIO"],
+  ["Regional SPMG","POCOS DE CALDAS"],["Regional SPMG","PONTE NOVA"],["Regional SPMG","POUSO ALEGRE"],
+  ["Regional SPMG","RIBEIRAO DAS NEVES"],["Regional SPMG","SABARA"],["Regional SPMG","SANTA LUZIA"],
+  ["Regional SPMG","SANTO ANDRE"],["Regional SPMG","SAO BERNARDO DO CAMPO"],["Regional SPMG","SAO JOAO DEL REI"],
+  ["Regional SPMG","SAO JOSE DOS CAMPOS"],["Regional SPMG","SETE LAGOAS"],["Regional SPMG","SP CAMPO LIMPO"],
+  ["Regional SPMG","SP CAPELA DO SOCORRO"],["Regional SPMG","SP CASA VERDE"],["Regional SPMG","SP CIDADE ADEMAR"],
+  ["Regional SPMG","SP FREGUESIA DO O"],["Regional SPMG","SP GUAIANASES"],["Regional SPMG","SP IPIRANGA"],
+  ["Regional SPMG","SP ITAIM PAULISTA"],["Regional SPMG","SP ITAQUERA"],["Regional SPMG","SP JABAQUARA"],
+  ["Regional SPMG","SP MBOI MIRIM"],["Regional SPMG","SP PARELHEIROS"],["Regional SPMG","SP PENHA"],
+  ["Regional SPMG","SP PINHEIROS"],["Regional SPMG","SP PIRITUBA"],["Regional SPMG","SP SAO MATEUS"],
+  ["Regional SPMG","SP SAO MIGUEL PAULISTA"],["Regional SPMG","SP SAPOPEMBA"],["Regional SPMG","SP TATUAPE"],
+  ["Regional SPMG","SP TUCURUVI"],["Regional SPMG","SP VILA MARIA"],["Regional SPMG","SUZANO"],
+  ["Regional SPMG","TABOAO DA SERRA"],["Regional SPMG","TAUBATE"],["Regional SPMG","TEOFILO OTONI"],
+  ["Regional SPMG","TRES CORACOES"],["Regional SPMG","UBA"],["Regional SPMG","UBERABA"],
+  ["Regional SPMG","UBERLANDIA"],["Regional SPMG","VALE DO ACO"],["Regional SPMG","VARGINHA"],
+  ["Regional SPMG","VESPASIANO"],["Regional SPMG","VICOSA"],
+];
+
+/** Normaliza um nome de franquia para comparação: remove acentos, prefixos e espaços extras. */
+function normalizaFranquia(s) {
+  if (!s) return '';
+
+  // ── Passo 1: normalização base (maiúsculas + sem acentos + espaços) ──────
+  s = String(s).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  s = s.replace(/[\s\-]+/g, ' ').trim();
+
+  // ── Passo 2: remove sufixos jurídicos e de UF antes de tudo ─────────────
+  const SUFIXOS_RM = [
+    ' LTDA.',' LTDA',' EIRELI',' ME',' S.A.',' SA',
+    ' AC',' AL',' AM',' AP',' BA',' CE',' DF',' ES',' GO',
+    ' MA',' MG',' MS',' MT',' PA',' PB',' PE',' PI',' PR',
+    ' RJ',' RN',' RO',' RR',' RS',' SC',' SE',' SP',' TO',
+  ];
+  for (const sf of [...SUFIXOS_RM].sort((a,b) => b.length - a.length)) {
+    if (s.endsWith(sf)) { s = s.slice(0, -sf.length).trim(); break; }
+  }
+
+  // ── Passo 3: remove prefixos conhecidos (iterativamente, do mais longo) ──
+  const PREFIXOS = [
+    'ADMINISTRADORA DE CARTAO DE TODOS ',
+    'ADMINISTRADORA DE CARTAO DE DESCONTO ',
+    'ADMINISTRADORA DE CARTAO DE DESCONTOS ',
+    'TODOS ADMINISTRADORA DE CARTAO DE DESCONTOS ',
+    'CARTAO DE TODOS - ','CARTAO DE TODOS ',
+    'ADMINISTRADORA CARTAO DE TODOS ',
+    'AMORSAUDE ','AMOR SAUDE ','AMOR-SAUDE ',
+    'CDT ','TODOS ','FRANQUIA ','UNIDADE ',
+    'CLINICA ','CLINICA AMOR SAUDE ','CLINIA AMOR SAUDE ',
+    'CARTAO ','SAUDE ','AS ',
+    'MEDICA E ODONTOLOGICA ','MEDICA E ODONTOLOGIA DE ',
+    'VILA NOVA MEDICINA E ODONTOLOGIA LTDA - AMOR SAUDE ',
+    'VILA NOVA MEDICINA E ODONTOLOGIA LTDA AMOR SAUDE ',
+    'CLINICA MEDICA E ODONTOLOGICA ',
+    'MEDICA E ODONTOLOGICA LTDA AMOR SAUDE ',
+    'MEDICA E ODONTOLOGICA JANDIRA LTDA AMOR SAUDE ',
+    'MEDICA E ODONTOLOGICA JANDIRA LTDA - AMOR SAUDE ',
+  ];
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const p of [...PREFIXOS].sort((a,b) => b.length - a.length)) {
+      if (s.startsWith(p)) { s = s.slice(p.length).trim(); changed = true; }
+    }
+  }
+  s = s.replace(/[\s\-]+/g, ' ').trim();
+
+  // ── Passo 4: corrige prefixo de bairro colado (SPJABAQUARA → SP JABAQUARA)
+  s = s.replace(/^(SP|RJ|BH)([A-Z])/, '$1 $2');
+
+  // ── Passo 5: dicionário semântico — casos irresolvíveis algoritmicamente ─
+  // Fonte: análise minuciosa dos 357 nomes reais vs 431 franquias do cadastro.
+  // Aqui ficam APENAS mapeamentos semânticos (localidades alternativas, apelidos,
+  // endereços de bairro, etc.) — NÃO entram casos já resolvidos pelos passos acima.
+  const EXCECOES = {
+    // ── Localidades alternativas / apelidos ───────────────────────────────
+    'JARDIM BALNEARIO':              'BALNEARIO CAMBORIU',
+    'GURUPI':                        'GURUPI DIGITAL',
+    'GURUPI DIGITAL TO':             'GURUPI DIGITAL',
+    'RECANTO DAS EMAS':              'CEILANDIA',
+    'CEILANDIA NORTE':               'CEILANDIA',
+    'CEILANDIA':                     'CEILANDIA',
+    'VICENTE PIRES':                 'TAGUATINGA',
+    'EM TAGUATINGA':                 'TAGUATINGA',
+    'LUZIANIA':                      'SANTA LUZIA',
+    'VALPARAISO':                    'VALPARAGISO DE GOIAS',
+    'VALPARAISO DE GOIAS':           'VALPARAGISO DE GOIAS',
+    'TODOS VALPARAISO DE GOIAS':     'VALPARAGISO DE GOIAS',
+    'ANAPOLIS ALEXANDRINA':          'ANAPOLIS',
+    'FORMOSA GOIAS':                 'FORMOSA',
+    'TRINDADE':                      'GOIANIA NOROESTE',
+    'PRAIA GRANDE CAICARA':          'PRAIA GRANDE',
+    'SAO ROQUE INTERIOR DE SAO PAULO':'SAO ROQUE',
+    'AMPARO SAO PAULO':              'AMPARO',
+    'APARECIDA DE GOIANIA':          'APARECIDA DE GOIANIA',
+    'CAMPINAS':                      'CAMPINAS CENTRO NORTE',
+    'DF CRUZEIRO':                   'CRUZEIRO',
+    'AMOR SAUDE DF CRUZEIRO':        'CRUZEIRO',
+    'LIMOEIRO':                      'LIMEIRO',
+    'JABOTICABAL':                   '__NAO_ENCONTRADO__',
+    // ── Bairros SP / RJ / BH ─────────────────────────────────────────────
+    'ITAIM PAULISTA':                'SP ITAIM PAULISTA',
+    'SAO MIGUEL PAULISTA':           'SP SAO MIGUEL PAULISTA',
+    'PARELHEIROS':                   'SP PARELHEIROS',
+    'PENHA':                         'RJ PENHA',
+    'IRAJA':                         'RJ IRAJA',
+    'MADUREIRA':                     'RJ MADUREIRA',
+    'MBOI MIRIM':                    'SP MBOI MIRIM',
+    'GUAIANASES':                    'SP GUAIANASES',
+    'TUCURUVI':                      'SP TUCURUVI',
+    'ITAQUERA':                      'SP ITAQUERA',
+    'TATUAPE':                       'SP TATUAPE',
+    'CAMPO LIMPO':                   'SP CAMPO LIMPO',
+    'CASA VERDE':                    'SP CASA VERDE',
+    'CIDADE ADEMAR':                 'SP CIDADE ADEMAR',
+    'PIRITUBA':                      'SP PIRITUBA',
+    'PINHEIROS':                     'SP PINHEIROS',
+    'SAPOPEMBA':                     'SP SAPOPEMBA',
+    'SAO MATEUS':                    'SP SAO MATEUS',
+    'JABAQUARA':                     'SP JABAQUARA',
+    'FREGUESIA DO O':                'SP FREGUESIA DO O',
+    'VILA MARIA':                    'SP VILA MARIA',
+    'BARREIRO':                      'BH BARREIRO',
+    'BELO HORIZONTE CENTRO SUL':     'BH CENTRO SUL',
+    // ── Razão social → franquia ───────────────────────────────────────────
+    'CORNELIO':                      'CORNELIO PROCOPIO',
+    'DESCONTO IBIRITE':              'IBIRITE',
+    'DE BRAGANCA PAULISTA':          'BRAGANCA PAULISTA',
+    'DE ITAPECERICA DA SERRA':       'ITAPECERICA DA SERRA',
+    'DE BARBACENA':                  'BARBACENA',
+    'DE CACHOEIRINHA':               'CACHOEIRINHA',
+    'DE FERRAZ DE VASCONCELOS':      'FERRAZ DE VASCONCELOS',
+    'DE GRAVATAI':                   'GRAVATAI',
+    'DE MONTES CLAROS':              'MONTES CLAROS',
+    'DE NOVA SERRANA':               'NOVA SERRANA',
+    'DE PONTE NOVA':                 'PONTE NOVA',
+    'DE REGISTRO':                   'REGISTRO',
+    'DE SAO VICENTE':                'SAO VICENTE',
+    'DE SOBRADINHO':                 'SOBRADINHO',
+    'DE VITORIA':                    'VITORIA',
+    'DE SOROCABA E CARTAO DE TODOS DE VOTORANTIM': 'SOROCABA',
+    'NOVA LIMA':                     'NOVA LIMA CENTRO',
+    'SAO BERNARDO':                  'SAO BERNARDO DO CAMPO',
+    'GUARULHOS CENTRO':              'GUARULHOS',
+    'GUARULHOS PIMENTAS':            'GUARULHOS - PIMENTAS',
+    'RIBEIRAO DAS NEVES JUSTINOPOLIS':'RIBEIRAO DAS NEVES',
+    'RIBEIRAO DAS NEVES':            'RIBEIRAO DAS NEVES',
+    'CAXIAS DO SUL KAYSER':          'CAXIAS DO SUL',
+    'VIAMAO CENTRO':                 'VIAMAO',
+    'RONDONOPOLIS OASIS':            'RONDONONOPOLIS',
+    'RONDONOPOLIS':                  'RONDONONOPOLIS',
+    'CARIACICA':                     'CARIACIA',
+    'JI-PARANA':                     'JI PARANA',
+    'JI PARANA':                     'JI PARANA',
+    'UMUARAMA PR':                   'UMUARAMA',
+    'LEME E PIRASSUNUNGA':           'LEME',
+    'MURIAE MANHUCUA':               'MURIAE',
+    'SOROCABA AMORSAUDE VOTORANTIM': 'SOROCABA',
+    'RIO VERDE':                     'RIO VERDE',
+    // ── Pessoas / responsáveis → franquia conhecida ───────────────────────
+    'MARCOS NOVAES':                 'VALE DO ACO',
+    'IPATINGA':                      'VALE DO ACO',
+    'CORONEL FABRICIANO':            'VALE DO ACO',
+    'SARA SILVA SANTOS':             'SANTOS',
+    'DIEGO FLAUSINO LEME MACIEL':    'LEME',
+    // ── Clínicas / razões sociais com cidade identificável ────────────────
+    'JANDIRA LTDA AMOR SAUDE JANDIRA':   'JANDIRA',
+    'JANDIRA LTDA - AMOR SAUDE JANDIRA': 'JANDIRA',
+    'JANDIRA':                       'JANDIRA',
+    'ITAPEVI':                       'ITAPEVI',
+    'CAJAMAR':                       'JANDIRA',
+    // ── Nomes com "de" ou "do" antes da cidade (não removidos pelos prefixos)
+    'ALFENAS':                       'ALFENAS',
+    // ── Casos que precisam de mapeamento por contexto ─────────────────────
+    'TANGARA DA SERRA':              'TANGARA DA SERRA',
+    'AVARE':                         'AVARE',
+    'CERQUILHO':                     'CERQUILHO',
+    'PALMAS':                        'PALMAS',
+    'GOIANIA CENTRO NORTE':          'GOIANIA CENTRO NORTE',
+    'SANTA BARBARA DOESTE':          'SANTA BARBARA DOESTE',
+    'PARA DE MINAS':                 'PARA DE MINAS',
+    'GUARAPARI':                     'GUARAPARI',
+    'CACOAL':                        'CACOAL',
+    'TODOS CACOAL':                  'CACOAL',
+    'DE ALFENAS':                    'ALFENAS',
+    'RIBEIRAO DAS NEVES VENEZA':     'RIBEIRAO DAS NEVES',
+    'APARECIDA DE GOIANIA JARDIM':   'APARECIDA DE GOIANIA',
+    'CAMPINAS CENTRO':               'CAMPINAS CENTRO NORTE',
+    'CEILANDIA SUL':                 'CEILANDIA',
+    // ── Sentinela: não encontrado no cadastro oficial ─────────────────────
+    'CARTAO':                        '__GENERICO__',
+    'CATALAO':                       'CATALAO',
+  };
+
+
+  if (EXCECOES[s] && !EXCECOES[s].startsWith('__')) return EXCECOES[s];
+  if (EXCECOES[s] && EXCECOES[s].startsWith('__')) return s; // devolve o próprio para cair em não-id
+
+  return s;
+}
+
+
 const ValidationService = (function () {
 
   /**
@@ -1256,19 +1594,47 @@ const ValidationService = (function () {
     const total = dadosCuradoria.length;
     const porRegional = {};
     const porArea = {};
-    // porFranquiaPorRegional: { "Regional X": { "Franquia Y": { total, validadas, pendentes } } }
-    // Inclui TODAS as franquias presentes nos dados de curadoria, mesmo as com 0 pendentes.
+
+    // Cadastro oficial: mapa regional → Set de nomes normalizados
+    // Usado para separar franquias identificadas das que necessitam validação.
+    const OFICIAL_POR_REGIONAL = CADASTRO_OFICIAL.reduce((acc, [reg, nome]) => {
+      if (!acc[reg]) acc[reg] = new Set();
+      acc[reg].add(normalizaFranquia(nome));
+      return acc;
+    }, {});
+
+    // porFranquiaPorRegional:
+    // { "Regional X": {
+    //     oficiais:      { "NOME OFICIAL": { total, validadas, pendentes } },
+    //     naoId:         { "Nome cadastrado": { total, validadas, pendentes } }
+    //   }
+    // }
     const porFranquiaPorRegional = {};
+
+    function getOrCreate(reg, bucket, chave) {
+      if (!porFranquiaPorRegional[reg]) porFranquiaPorRegional[reg] = { oficiais: {}, naoId: {} };
+      if (!porFranquiaPorRegional[reg][bucket][chave])
+        porFranquiaPorRegional[reg][bucket][chave] = { total: 0, validadas: 0, pendentes: 0 };
+      return porFranquiaPorRegional[reg][bucket][chave];
+    }
+
     dadosCuradoria.forEach((item) => {
       const reg = item.regional || 'Sem regional';
       const fra = item.franquia || 'Sem franquia';
-      if (!porFranquiaPorRegional[reg]) porFranquiaPorRegional[reg] = {};
-      if (!porFranquiaPorRegional[reg][fra]) porFranquiaPorRegional[reg][fra] = { total: 0, validadas: 0, pendentes: 0 };
-      const st = statusEfetivo(item);
-      porFranquiaPorRegional[reg][fra].total++;
-      if (st === 'Validada') porFranquiaPorRegional[reg][fra].validadas++;
-      else porFranquiaPorRegional[reg][fra].pendentes++;
-      // porRegional continua contando só pendentes (para o gráfico de barras existente)
+      const st  = statusEfetivo(item);
+
+      // Decide se a franquia é oficial para essa regional
+      const normFra = normalizaFranquia(fra);
+      const isOficial = (OFICIAL_POR_REGIONAL[reg] || new Set()).has(normFra);
+      const bucket = isOficial ? 'oficiais' : 'naoId';
+      // Para oficiais usamos o nome normalizado como chave (agrupa variações)
+      const chave = isOficial ? normFra : fra;
+
+      const entry = getOrCreate(reg, bucket, chave);
+      entry.total++;
+      if (st === 'Validada') entry.validadas++;
+      else entry.pendentes++;
+
       if (st !== 'Validada') {
         porRegional[item.regional] = (porRegional[item.regional] || 0) + 1;
         const area = item._areaSugerida || 'Operações';
@@ -1276,16 +1642,23 @@ const ValidationService = (function () {
       }
     });
 
-    // Franquias sem iniciativa (Status = "Sem Iniciativa") — registradas na Lista do SharePoint
-    // mas excluídas de dadosCuradoria. Aparecem no painel com contadores zerados para que
-    // o gestor saiba quais franquias ainda não têm nenhuma iniciativa cadastrada.
+    // Franquias sem iniciativa (Status = "Sem Iniciativa") — adicionadas no bucket oficial
     rawData.filter(d => (d.status || '') === 'Sem Iniciativa').forEach((item) => {
       const reg = item.regional || 'Sem regional';
       const fra = item.franquia || 'Sem franquia';
-      if (!porFranquiaPorRegional[reg]) porFranquiaPorRegional[reg] = {};
-      // Só insere se a franquia ainda não apareceu nos dados de curadoria
-      if (!porFranquiaPorRegional[reg][fra]) {
-        porFranquiaPorRegional[reg][fra] = { total: 0, validadas: 0, pendentes: 0 };
+      const normFra = normalizaFranquia(fra);
+      if (!porFranquiaPorRegional[reg]) porFranquiaPorRegional[reg] = { oficiais: {}, naoId: {} };
+      if (!porFranquiaPorRegional[reg].oficiais[normFra]) {
+        porFranquiaPorRegional[reg].oficiais[normFra] = { total: 0, validadas: 0, pendentes: 0 };
+      }
+    });
+
+    // Garante que TODAS as franquias do cadastro oficial apareçam (mesmo sem nenhuma iniciativa)
+    CADASTRO_OFICIAL.forEach(([reg, nome]) => {
+      const normFra = normalizaFranquia(nome);
+      if (!porFranquiaPorRegional[reg]) porFranquiaPorRegional[reg] = { oficiais: {}, naoId: {} };
+      if (!porFranquiaPorRegional[reg].oficiais[normFra]) {
+        porFranquiaPorRegional[reg].oficiais[normFra] = { total: 0, validadas: 0, pendentes: 0 };
       }
     });
 
@@ -1616,67 +1989,72 @@ function renderFranquiaPorRegional(containerId, porFranquiaPorRegional){
   const el = document.getElementById(containerId);
   if(!el) return;
 
-  // Diagnóstico: itens sem regional
   const semRegional = RAW_DATA.filter(d => !d.regional || d.regional.trim() === '');
   if(semRegional.length){
-    console.warn('[Central de Curadoria] Itens sem regional preenchida:');
-    semRegional.forEach(d => {
-      console.warn(`  ID: ${d.id} | Franquia: "${d.franquia || '—'}" | Nome: "${d.nome || '—'}" | Status: ${d.status || 'Pendente'}`);
-    });
+    console.warn('[Central] Itens sem regional:');
+    semRegional.forEach(d => console.warn(`  ID:${d.id} | "${d.franquia||'—'}" | "${d.nome||'—'}"`));
   }
-
   const avisoHtml = semRegional.length ? `
     <div style="background:#FBE4E4;border:1px solid #e57373;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12.5px;color:#B33636;">
-      <strong>${ic('info')} ${semRegional.length} iniciativa${semRegional.length > 1 ? 's' : ''} sem regional preenchida</strong>
-      — verifique os seguintes IDs na Lista do SharePoint:
+      <strong>${ic('info')} ${semRegional.length} iniciativa${semRegional.length>1?'s':''} sem regional</strong> — IDs no SharePoint:
       <div style="margin-top:6px;display:flex;flex-direction:column;gap:2px;">
-        ${semRegional.map(d => `<span>ID <strong>${d.id}</strong> — <em>${esc(d.franquia || 'Sem franquia')}</em> — "${esc(d.nome || 'Sem nome')}"</span>`).join('')}
+        ${semRegional.map(d=>`<span>ID <strong>${d.id}</strong> — <em>${esc(d.franquia||'Sem franquia')}</em></span>`).join('')}
       </div>
     </div>` : '';
 
-  // Monta resumo por regional: quantidade de franquias e total de iniciativas de cada uma
+  const labelOficial = {};
+  CADASTRO_OFICIAL.forEach(([,nome]) => { labelOficial[normalizaFranquia(nome)] = nome; });
+
   const regionais = Object.entries(porFranquiaPorRegional)
     .filter(([reg]) => reg && reg !== 'Sem regional')
-    .map(([regional, franquias]) => {
-      const franquiaEntries = Object.entries(franquias)
-        .sort((a, b) => b[1].total - a[1].total); // mais iniciativas primeiro; zeradas no fim
-      const qtdFranquias = franquiaEntries.length;
-      const totReg = franquiaEntries.reduce((s, [,v]) => s + v.total, 0);
-      return { regional, franquiaEntries, qtdFranquias, totReg };
+    .map(([regional, buckets]) => {
+      const oficiais = Object.entries(buckets.oficiais || {}).sort((a,b) => b[1].total - a[1].total);
+      const naoId    = Object.entries(buckets.naoId    || {}).sort((a,b) => b[1].total - a[1].total);
+      const totReg   = oficiais.reduce((s,[,v]) => s + v.total, 0);
+      return { regional, oficiais, naoId, totReg, qtdOfic: oficiais.length, qtdNaoId: naoId.length };
     })
-    .sort((a, b) => b.qtdFranquias - a.qtdFranquias);
+    .sort((a,b) => b.qtdOfic - a.qtdOfic);
 
   if(!regionais.length){
     el.innerHTML = avisoHtml + '<div style="font-size:12.5px;color:var(--gm);">Nenhum dado disponível.</div>';
     return;
   }
 
-  el.innerHTML = avisoHtml + regionais.map(({ regional, franquiaEntries, qtdFranquias, totReg }) => {
-    const rows = franquiaEntries.map(([franquia, v]) => `
-      <tr>
-        <td>${esc(franquia)}</td>
-        <td class="num ${v.total === 0 ? 'zero' : ''}">${v.total}</td>
-      </tr>`).join('');
+  el.innerHTML = avisoHtml + regionais.map(({regional, oficiais, naoId, totReg, qtdOfic, qtdNaoId}) => {
+
+    const rowsOficiais = oficiais.map(([normNome, v]) => {
+      const label = labelOficial[normNome] || normNome;
+      return `<tr><td>${esc(label)}</td><td class="num ${v.total===0?'zero':''}">${v.total}</td></tr>`;
+    }).join('');
+
+    const rowsNaoId = naoId.map(([nome, v]) =>
+      `<tr><td>${esc(nome)}</td><td class="num">${v.total}</td></tr>`
+    ).join('');
+
+    const secNaoId = naoId.length ? `
+      <div class="fra-subcat-title nao-id">${ic('question')} Nome da franquia necessita validação (${qtdNaoId})</div>
+      <table class="fra-table">
+        <thead><tr><th>Nome cadastrado</th><th class="num">Iniciativas</th></tr></thead>
+        <tbody>${rowsNaoId}</tbody>
+      </table>` : '';
 
     return `<details class="regional-group">
       <summary>
         <span>${esc(regional)}</span>
         <span class="rg-summary-chips">
-          <span class="rg-chip-stat rg-chip-total">${qtdFranquias} franquias</span>
+          <span class="rg-chip-stat rg-chip-total">${qtdOfic} franquias</span>
           <span class="rg-chip-stat rg-chip-val">${totReg} iniciativas</span>
         </span>
       </summary>
+      <div class="fra-subcat-title">Franquias (${qtdOfic})</div>
       <table class="fra-table">
-        <thead><tr>
-          <th>Franquia</th>
-          <th class="num">Iniciativas</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
+        <thead><tr><th>Franquia</th><th class="num">Iniciativas</th></tr></thead>
+        <tbody>${rowsOficiais}</tbody>
       </table>
+      ${secNaoId}
     </details>`;
   }).join('');
 }
-
 </script>
 <script>
 /* ============================================================
