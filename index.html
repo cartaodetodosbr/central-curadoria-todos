@@ -1947,11 +1947,11 @@ function renderDashboard(){
 
   const qtdNovos = contarItensNovos();
   const kpis = [
-    [ic('box'), stats.total, 'Total de Iniciativas'],
+    [ic('box'), RAW_DATA.length, 'Total de Respostas'],
     [ic('sparkle'), qtdNovos, 'Novos desde sua última visita'],
     [ic('trophy'), stats.validadas, 'Revisadas'],
     [ic('clipboard'), stats.pendentes, 'Pendentes'],
-    [ic('wrench'), stats.emRevisao, 'Em Revisão'],
+    [ic('box'), stats.total, 'Total de Iniciativas'],
     [ic('sparkle'), stats.pctConcluido + '%', 'Concluído'],
     [ic('question'), stats.necessitaRevisao, 'Necessita Revisão'],
   ];
