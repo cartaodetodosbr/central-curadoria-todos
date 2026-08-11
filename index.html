@@ -1601,7 +1601,9 @@ const ValidationService = (function () {
       else pendentes++;
     });
 
-    const total = dadosCuradoria.length;
+    // total = itens que efetivamente possuem iniciativa (mesmo critério de "Possuem Iniciativas"
+    // na tela de Indicadores), para que os dois números sejam comparáveis.
+    const total = rawData.filter(d => (d.possui_iniciativa || '').toLowerCase().startsWith('sim')).length;
     const porRegional = {};
     const porArea = {};
 
