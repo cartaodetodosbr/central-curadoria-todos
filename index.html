@@ -706,31 +706,33 @@ textarea.obs-field:focus, .edit-select:focus{outline:none;border-color:var(--t);
         </div>
       </section>
 
-      <!-- ===================== CASES (Etapa 3 — espaço preparatório) ===================== -->
+      <!-- ===================== CASES (Etapa 3.1 — esteiras operacionais) ===================== -->
       <section class="page" id="page-cases">
         <div class="sh">
           <div class="tag">Biblioteca de Iniciativas Digitais</div>
           <h2>Cases</h2>
-          <p>Espaço reservado para as iniciativas aprovadas pela Curadoria e aptas a alimentar a Biblioteca de Iniciativas Digitais.</p>
+          <p>Iniciativas que já passaram pela Curadoria e seguem para a construção ou revisão do Case — Legado e Novo Modelo, cada uma na sua esteira.</p>
         </div>
-        <div class="card" style="padding:36px 30px;">
-          <div style="display:flex;gap:16px;align-items:flex-start;">
-            <div style="color:var(--t);flex-shrink:0;"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="1.5"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/></svg></div>
-            <div>
-              <h3 style="color:var(--pd);margin-bottom:8px;">Ainda não há uma decisão formal de "Elegível para Case"</h3>
-              <p style="color:var(--gm);font-size:13.5px;line-height:1.6;margin-bottom:10px;">
-                Este espaço vai reunir, no futuro, apenas as iniciativas que passaram pela decisão explícita da Curadoria
-                (aprovadas para virar Case) — não simplesmente todas as iniciativas do Novo Modelo, nem todas com potencial Alto.
-              </p>
-              <p style="color:var(--gm);font-size:13.5px;line-height:1.6;margin-bottom:10px;">
-                Esse mecanismo de decisão (campo "Elegível para Case", status do Case, responsável, datas) ainda não foi implementado —
-                está previsto para uma próxima etapa. Por enquanto, continue usando a <b>Fila de Revisão</b> e
-                <b>Consultar Iniciativas</b> normalmente; o badge "Case estruturado pelo Portal" já indica ali quais
-                iniciativas chegam com os dados de Case prontos para leitura.
-              </p>
-            </div>
+
+        <div class="card" style="padding:14px 18px;margin-bottom:20px;background:var(--bg);border:1px dashed var(--gl);">
+          <div style="font-size:12.5px;color:var(--gm);line-height:1.6;">
+            <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg> Ainda não existe um campo de decisão específica do Case (Elegível/Status/Responsável do Case) — isso é uma etapa futura.
+            Por isso a lista abaixo é uma <b>fila de trabalho</b>, não uma lista de "aprovados": Legado só entra depois de validado pela
+            Curadoria com potencial Alto; Novo Modelo entra assim que o Case chega preenchido, e ainda precisa ser lido e decidido por vocês.
           </div>
         </div>
+
+        <div class="sh" style="margin-bottom:10px;">
+          <h3 style="color:var(--pd);display:flex;align-items:center;gap:8px;"><svg class="icon" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> Cases Manuais — Legado</h3>
+          <p style="font-size:12.5px;">Iniciativas cadastradas até 19/08/2026, classificadas pela Curadoria com alto potencial de replicação e que precisam ter o Case construído manualmente.</p>
+        </div>
+        <div class="cat-grid" id="casesLegadoView" style="margin-bottom:28px;"></div>
+
+        <div class="sh" style="margin-bottom:10px;">
+          <h3 style="color:var(--pd);display:flex;align-items:center;gap:8px;"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="1.5"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/></svg> Cases Estruturados pelo Portal</h3>
+          <p style="font-size:12.5px;">Iniciativas cadastradas a partir de 20/08/2026 que já possuem as informações de Case preenchidas pelo Portal e precisam apenas da avaliação da Curadoria.</p>
+        </div>
+        <div class="cat-grid" id="casesNovoView"></div>
       </section>
 
       <!-- ===================== INDICADORES ===================== -->
@@ -1755,6 +1757,12 @@ const AppState = {
   currentQueue: null, // null = fila nunca foi iniciada nesta sessão (distinto de [] = fila vazia/concluída)
   currentIndex: 0,
   currentDraft: null, // formulário em edição da iniciativa atual
+  // Correção do bug "Fila de Revisão presa no item avulso": abrir uma iniciativa a partir
+  // de Consultar Iniciativas NÃO deve mais sobrescrever currentQueue/currentIndex (a fila
+  // real). Em vez disso, usa este estado separado, para que voltar à Fila de Revisão pelo
+  // menu sempre retome a fila de verdade, na posição em que o curador estava.
+  viewingAdHoc: false,
+  adHocItem: null,
 };
 
 const PAGE_TITLES = {
@@ -1777,16 +1785,30 @@ function goToPage(page){
   if(page==='dashboard') renderDashboard();
   if(page==='lista') renderLista();
   if(page==='indicadores') renderIndicadores();
+  if(page==='cases') renderCases();
   // Clicar direto em "Fila de Revisão" sem antes clicar em "Iniciar Revisão" deixava a
   // página em branco. Agora, nesse caso, a fila é montada sozinha (mesmo comportamento
   // de clicar "Iniciar Revisão") — e sempre checando na nuvem quem outros revisores já curaram.
-  if(page==='revisao' && AppState.currentQueue === null) buildQueueAndRender();
+  if(page==='revisao' && AppState.currentQueue === null && !AppState.viewingAdHoc) buildQueueAndRender();
   location.hash = page;
 }
 
 document.addEventListener('click', (e)=>{
   const nav = e.target.closest('.navitem');
-  if(nav){ e.preventDefault(); goToPage(nav.dataset.page); }
+  if(nav){
+    e.preventDefault();
+    const page = nav.dataset.page;
+    if(page==='revisao' && AppState.viewingAdHoc){
+      // Curador clicou em "Fila de Revisão" pelo menu depois de ter aberto uma iniciativa
+      // avulsa a partir de "Consultar Iniciativas" — sai do modo avulso e volta para a fila
+      // real, retomando a posição em que estava (ou montando a fila, se ainda não existia).
+      AppState.viewingAdHoc = false;
+      goToPage(page);
+      if(AppState.currentQueue !== null) renderReviewCard();
+    } else {
+      goToPage(page);
+    }
+  }
 });
 document.getElementById('menuBtn').addEventListener('click', ()=>{
   document.getElementById('sidebar').classList.toggle('open');
@@ -1898,6 +1920,57 @@ const CASE_CONTENT_FIELDS = [
 function temCaseEstruturado(item){
   if(!item) return false;
   return CASE_CONTENT_FIELDS.some(f => String(item[f] || '').trim() !== '');
+}
+
+/* ============================================================
+   ETAPA 3.1 — Página "Cases" (transição operacional Legado × Novo Modelo)
+   ============================================================
+   Reaproveita EXATAMENTE a mesma noção de "revisado"/"potencial oficial" já
+   usada em statusOf()/renderReviewCard() — sessão local (ValidationRepository)
+   tem precedência, senão usa o valor persistido no SharePoint via normalizeIniciativa.
+   Nada aqui grava dado nenhum — é 100% derivado, recalculado a cada render.
+   ============================================================ */
+
+/** Potencial de Replicação DEFINIDO PELA CURADORIA — nunca a autoavaliação da franquia. */
+function potencialCuradoria(item){
+  const local = ValidationRepository.getById(item.id);
+  if(local) return local.potencial_validado || '';
+  return item.potencial_validado || '';
+}
+
+/**
+ * Legado, já validado pela Curadoria (statusOf === 'Validada'), com potencial ALTO
+ * definido pela CURADORIA (não a autoavaliação da franquia) → entra na esteira de
+ * Case Manual. Não coloca automaticamente todo legado — só quem passou pelo crivo.
+ */
+function elegivelCaseManual(item){
+  return classificarModelo(item) === 'legado'
+    && statusOf(item.id) === 'Validada'
+    && potencialCuradoria(item) === 'Alto';
+}
+
+/**
+ * Novo Modelo com Case realmente preenchido pelo Portal → entra na fila de trabalho
+ * "Cases Estruturados pelo Portal", aguardando a leitura/avaliação da Curadoria.
+ * IMPORTANTE: isto NÃO significa aprovado — é só a fila de quem tem Case pronto para
+ * ser avaliado. Não existe hoje um campo que registre a decisão específica sobre o
+ * Case (isso é o futuro StatusCase/ElegivelParaCase, fora de escopo nesta etapa).
+ */
+function aguardandoRevisaoCase(item){
+  return classificarModelo(item) === 'novo' && temCaseEstruturado(item);
+}
+
+/** Data de cadastro formatada para exibição — nunca lança erro, mesmo com texto inválido. */
+function dataCadastroDisplay(item){
+  const d = parseDataCadastro(item && item.data_hora_cadastro);
+  return d ? d.toLocaleDateString('pt-BR') : (item && item.data_hora_cadastro ? esc(item.data_hora_cadastro) : '—');
+}
+
+/** Resumo curto (não inventa nada — só corta o texto real do campo). */
+function resumoCurto(texto, max){
+  const t = String(texto || '').trim();
+  if(!t) return '<span style="color:var(--gm);font-style:italic;">Não informado.</span>';
+  return esc(t.length > max ? t.slice(0, max).trim() + '…' : t);
 }
 
 /**
@@ -2027,11 +2100,15 @@ function renderDashboard(){
   if(btnIniciar) btnIniciar.addEventListener('click', ()=> startReview('proxima_pendente'));
 
   const qtdNovos = contarItensNovos();
-  // Etapa 3 — contagem derivada (não gravada) de Legado x Novo Modelo, calculada só
-  // sobre iniciativas que efetivamente entram na Curadoria (mesmo recorte de dashboardStats).
+  // Etapa 3.1 — contagens derivadas (não gravadas) das duas esteiras da página Cases.
+  // Mesmas funções usadas em renderCases(), para os números do Dashboard nunca
+  // divergirem do que a página Cases realmente mostra.
   const dadosParaModelo = RAW_DATA.filter(d => (d.status || '') !== 'Sem Iniciativa');
-  const qtdLegado = dadosParaModelo.filter(d => classificarModelo(d) === 'legado').length;
-  const qtdNovoComCase = dadosParaModelo.filter(d => classificarModelo(d) === 'novo' && temCaseEstruturado(d)).length;
+  const qtdCaseManual = dadosParaModelo.filter(elegivelCaseManual).length;
+  const qtdCaseEstruturado = dadosParaModelo.filter(aguardandoRevisaoCase).length;
+  // "Aguardando avaliação da Curadoria" = tem Case do Portal mas a iniciativa ainda não
+  // foi Validada — não confundir com "aprovado para Case" (esse dado ainda não existe).
+  const qtdCaseAguardandoAvaliacao = dadosParaModelo.filter(d => aguardandoRevisaoCase(d) && statusOf(d.id) !== 'Validada').length;
   const kpis = [
     [ic('box'), RAW_DATA.length, 'Total de Respostas'],
     [ic('sparkle'), qtdNovos, 'Novos desde sua última visita'],
@@ -2040,8 +2117,9 @@ function renderDashboard(){
     [ic('box'), stats.total, 'Total de Iniciativas'],
     [ic('sparkle'), stats.pctConcluido + '%', 'Concluído'],
     [ic('question'), stats.necessitaRevisao, 'Necessita Revisão'],
-    [ic('book'), qtdLegado, 'Cases legados'],
-    [ic('briefcase'), qtdNovoComCase, 'Cases estruturados pelo Portal'],
+    [ic('book'), qtdCaseManual, 'Aguardando Case Manual (Legado)'],
+    [ic('briefcase'), qtdCaseEstruturado, 'Cases Estruturados pelo Portal'],
+    [ic('clipboard'), qtdCaseAguardandoAvaliacao, 'Cases aguardando avaliação da Curadoria'],
   ];
   document.getElementById('kpiGrid').innerHTML = kpis.map(([icoHtml,val,lab],idx)=>`
     <div class="card kpi hoverable${idx===1 && qtdNovos>0 ? ' kpi-novo-destaque' : ''}">
@@ -2182,6 +2260,7 @@ function renderFranquiaPorRegional(containerId, porFranquiaPorRegional){
 
 function startReview(){
   AppState.currentQueue = null; // força reconstruir a fila (mesmo se já existir uma montada)
+  AppState.viewingAdHoc = false; // garante que não fica preso num item avulso anterior
   goToPage('revisao');
 }
 
@@ -2211,7 +2290,10 @@ function renderReviewEmpty(){
     </div>`;
 }
 
-function currentItem(){ return AppState.currentQueue[AppState.currentIndex]; }
+function currentItem(){
+  if(AppState.viewingAdHoc) return AppState.adHocItem;
+  return AppState.currentQueue[AppState.currentIndex];
+}
 
 /**
  * Texto para os blocos de descrição de largura total. Nos 2 casos conhecidos em que a
@@ -2426,7 +2508,7 @@ function renderReviewCard(){
       </div>
       <div class="review-actions">
         <div class="ra-left">
-          <button class="btn btn-ghost btn-sm" id="btnAnterior" ${AppState.currentIndex===0?'disabled':''}>${ic('menu')} Anterior</button>
+          <button class="btn btn-ghost btn-sm" id="btnAnterior" ${(AppState.viewingAdHoc||AppState.currentIndex===0)?'disabled':''}>${ic('menu')} Anterior</button>
         </div>
         <div class="ra-right">
           <button class="btn btn-ghost btn-sm" id="btnSalvarRascunho">Salvar</button>
@@ -2570,6 +2652,7 @@ async function handleSave(mode){
 /** Avança automaticamente para a próxima pendente — sem perguntar. */
 async function advanceToNext(){
   AppState.currentQueue = null;
+  AppState.viewingAdHoc = false; // se a validação partiu de um item avulso, volta para a fila real
   await buildQueueAndRender();
   window.scrollTo({top:0, behavior:'auto'});
 }
@@ -2705,6 +2788,57 @@ function matchesListaFilters(d){
   return true;
 }
 
+/**
+ * Página "Cases" (Etapa 3.1) — duas esteiras, ambas derivadas de RAW_DATA + sessão de
+ * validação local, recalculadas a cada visita à página. Nada aqui é gravado.
+ */
+function renderCases(){
+  const dadosCuradoria = RAW_DATA.filter(d => (d.status || '') !== 'Sem Iniciativa');
+  const legadoList = dadosCuradoria.filter(elegivelCaseManual);
+  const novoList = dadosCuradoria.filter(aguardandoRevisaoCase);
+
+  const legadoEl = document.getElementById('casesLegadoView');
+  if(legadoEl){
+    legadoEl.innerHTML = legadoList.length ? legadoList.map(item => `
+      <div class="card cat-card hoverable">
+        <div class="top-row"><h4>${esc(item.nome)}</h4><span class="status-pill ${slug(statusOf(item.id))}">${esc(statusOf(item.id))}</span></div>
+        <div class="badgerow">${modeloBadgeHtml(item)}</div>
+        <div class="meta"><b>Franquia:</b> ${esc(item.franquia)}</div>
+        <div class="meta"><b>Regional:</b> ${esc(item.regional)}</div>
+        <div class="meta"><b>Data de cadastro:</b> ${dataCadastroDisplay(item)}</div>
+        <div class="meta"><b>Potencial de Replicação (Curadoria):</b> ${esc(potencialCuradoria(item))}</div>
+        <div class="meta"><b>Parecer da Curadoria:</b> ${resumoCurto(item.parecer_curadoria, 140)}</div>
+        <div class="foot-row">
+          <span></span>
+          <button class="btn btn-ghost btn-sm" onclick="openSingleReview(${item.id})">${ic('wrench')} Construir Case</button>
+        </div>
+      </div>`).join('') : `<div class="empty-state">${ic('trophy')}Nenhuma iniciativa legado validada com potencial Alto aguardando Case manual no momento.</div>`;
+  }
+
+  const novoEl = document.getElementById('casesNovoView');
+  if(novoEl){
+    novoEl.innerHTML = novoList.length ? novoList.map(item => {
+      const potCur = potencialCuradoria(item);
+      return `
+      <div class="card cat-card hoverable">
+        <div class="top-row"><h4>${esc(item.nome)}</h4><span class="status-pill ${slug(statusOf(item.id))}">${esc(statusOf(item.id))}</span></div>
+        <div class="badgerow">${modeloBadgeHtml(item)}</div>
+        <div class="meta"><b>Franquia:</b> ${esc(item.franquia)}</div>
+        <div class="meta"><b>Regional:</b> ${esc(item.regional)}</div>
+        <div class="meta"><b>Data de cadastro:</b> ${dataCadastroDisplay(item)}</div>
+        <div class="meta"><b>Potencial informado pela franquia:</b> ${esc(item.potencial_replicacao_franquia)}</div>
+        <div class="meta"><b>Potencial definido pela Curadoria:</b> ${potCur ? esc(potCur) : '<span style="color:var(--gm);font-style:italic;">Ainda não avaliado</span>'}</div>
+        <div class="meta"><b>Resumo do Case:</b> ${resumoCurto(item.case_situacao_motivo, 140)}</div>
+        <div class="meta"><b>Parecer da Curadoria:</b> ${resumoCurto(item.parecer_curadoria, 140)}</div>
+        <div class="foot-row">
+          <span></span>
+          <button class="btn btn-ghost btn-sm" onclick="openSingleReview(${item.id})">${ic('eye')} Avaliar Case</button>
+        </div>
+      </div>`;
+    }).join('') : `<div class="empty-state">${ic('trophy')}Nenhuma iniciativa do Novo Modelo com Case estruturado no momento.</div>`;
+  }
+}
+
 function renderListaResults(){
   const base = RAW_DATA.filter(d => (d.status || '') !== 'Sem Iniciativa');
   const list = base.filter(matchesListaFilters);
@@ -2740,13 +2874,17 @@ const CAT_COLOR = {
 };
 function badgeHtml(text, cls){ return `<span class="badge ${cls}">${esc(text)}</span>`; }
 
-/** Abre a fila com uma única iniciativa (revisão avulsa a partir da lista manual) */
+/**
+ * Abre uma única iniciativa para revisão avulsa a partir de Consultar Iniciativas.
+ * Correção do bug conhecido: isto NÃO mexe mais em AppState.currentQueue/currentIndex
+ * (a fila real da Fila de Revisão) — usa um estado separado (viewingAdHoc/adHocItem),
+ * para que voltar à Fila de Revisão pelo menu sempre mostre a fila de verdade.
+ */
 function openSingleReview(id){
   const item = RAW_DATA.find(d=>d.id===id);
   if(!item) return;
-  AppState.currentStrategy = 'proxima_pendente';
-  AppState.currentQueue = [item];
-  AppState.currentIndex = 0;
+  AppState.viewingAdHoc = true;
+  AppState.adHocItem = item;
   goToPage('revisao');
   renderReviewCard();
 }
