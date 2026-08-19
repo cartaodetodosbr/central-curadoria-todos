@@ -1939,31 +1939,71 @@ function potencialCuradoria(item){
 }
 
 /**
+ * Rótulo de exibição para o Potencial de Replicação DA CURADORIA. O valor real gravado
+ * é minúsculo/sem acento ("alto","medio","baixo","nao_avaliavel" — ver MASTER.potencialReplicacao,
+ * fonte dos botões da tela de revisão). Isto é só cosmético: a comparação de regra de
+ * negócio em elegivelCaseManual()/elegivelCaseEstruturado() sempre usa o valor cru.
+ */
+const POTENCIAL_CURADORIA_LABEL = { alto: 'Alto', medio: 'Médio', baixo: 'Baixo', nao_avaliavel: 'Não avaliável' };
+function potencialCuradoriaLabel(item){
+  const v = potencialCuradoria(item);
+  return v ? (POTENCIAL_CURADORIA_LABEL[v] || esc(v)) : '';
+}
+
+/**
  * Legado, já validado pela Curadoria (statusOf === 'Validada'), com potencial ALTO
  * definido pela CURADORIA (não a autoavaliação da franquia) → entra na esteira de
  * Case Manual. Não coloca automaticamente todo legado — só quem passou pelo crivo.
+ * CORREÇÃO: o valor real salvo pela Curadoria é "alto" (minúsculo, sem acento) — não
+ * "Alto". Comparar com o literal errado fazia esta função nunca bater com nada.
  */
 function elegivelCaseManual(item){
   return classificarModelo(item) === 'legado'
     && statusOf(item.id) === 'Validada'
-    && potencialCuradoria(item) === 'Alto';
+    && potencialCuradoria(item) === 'alto';
 }
 
 /**
- * Novo Modelo com Case realmente preenchido pelo Portal → entra na fila de trabalho
- * "Cases Estruturados pelo Portal", aguardando a leitura/avaliação da Curadoria.
- * IMPORTANTE: isto NÃO significa aprovado — é só a fila de quem tem Case pronto para
- * ser avaliado. Não existe hoje um campo que registre a decisão específica sobre o
- * Case (isso é o futuro StatusCase/ElegivelParaCase, fora de escopo nesta etapa).
+ * Novo Modelo com Case preenchido pelo Portal E já validado pela Curadoria (mesma
+ * definição de "Revisada" usada em toda a Central) → entra em "Cases Estruturados
+ * pelo Portal". Decisão explícita da Regi: exigir Validada aqui, mesmo sem existir
+ * ainda um campo de decisão específica do Case (StatusCase/ElegivelParaCase, fora de
+ * escopo) — a validação geral da Curadoria (categoria/potencial/parecer) é o gate
+ * disponível hoje.
  */
-function aguardandoRevisaoCase(item){
-  return classificarModelo(item) === 'novo' && temCaseEstruturado(item);
+function elegivelCaseEstruturado(item){
+  return classificarModelo(item) === 'novo'
+    && temCaseEstruturado(item)
+    && statusOf(item.id) === 'Validada';
+}
+
+/**
+ * Novo Modelo com Case preenchido MAS ainda não validado pela Curadoria — o "backlog"
+ * que continua na Fila de Revisão normalmente, só usado para o indicador do Dashboard
+ * (não tem lista própria na página Cases, para não duplicar a Fila de Revisão).
+ */
+function temCaseAguardandoAvaliacao(item){
+  return classificarModelo(item) === 'novo' && temCaseEstruturado(item) && statusOf(item.id) !== 'Validada';
 }
 
 /** Data de cadastro formatada para exibição — nunca lança erro, mesmo com texto inválido. */
 function dataCadastroDisplay(item){
   const d = parseDataCadastro(item && item.data_hora_cadastro);
   return d ? d.toLocaleDateString('pt-BR') : (item && item.data_hora_cadastro ? esc(item.data_hora_cadastro) : '—');
+}
+
+/**
+ * Data da Curadoria — SÓ disponível quando o item foi validado NESTA sessão (o
+ * SharePoint/Select ainda não devolve uma data de curadoria persistida). Para itens
+ * validados em sessões anteriores, mostra "—" em vez de inventar uma data.
+ */
+function dataCuradoriaDisplay(item){
+  const local = ValidationRepository.getById(item.id);
+  if(local && local.data_hora){
+    const d = new Date(local.data_hora);
+    return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR');
+  }
+  return '—';
 }
 
 /** Resumo curto (não inventa nada — só corta o texto real do campo). */
@@ -2105,10 +2145,10 @@ function renderDashboard(){
   // divergirem do que a página Cases realmente mostra.
   const dadosParaModelo = RAW_DATA.filter(d => (d.status || '') !== 'Sem Iniciativa');
   const qtdCaseManual = dadosParaModelo.filter(elegivelCaseManual).length;
-  const qtdCaseEstruturado = dadosParaModelo.filter(aguardandoRevisaoCase).length;
+  const qtdCaseEstruturado = dadosParaModelo.filter(elegivelCaseEstruturado).length;
   // "Aguardando avaliação da Curadoria" = tem Case do Portal mas a iniciativa ainda não
   // foi Validada — não confundir com "aprovado para Case" (esse dado ainda não existe).
-  const qtdCaseAguardandoAvaliacao = dadosParaModelo.filter(d => aguardandoRevisaoCase(d) && statusOf(d.id) !== 'Validada').length;
+  const qtdCaseAguardandoAvaliacao = dadosParaModelo.filter(temCaseAguardandoAvaliacao).length;
   const kpis = [
     [ic('box'), RAW_DATA.length, 'Total de Respostas'],
     [ic('sparkle'), qtdNovos, 'Novos desde sua última visita'],
@@ -2795,7 +2835,7 @@ function matchesListaFilters(d){
 function renderCases(){
   const dadosCuradoria = RAW_DATA.filter(d => (d.status || '') !== 'Sem Iniciativa');
   const legadoList = dadosCuradoria.filter(elegivelCaseManual);
-  const novoList = dadosCuradoria.filter(aguardandoRevisaoCase);
+  const novoList = dadosCuradoria.filter(elegivelCaseEstruturado);
 
   const legadoEl = document.getElementById('casesLegadoView');
   if(legadoEl){
@@ -2806,8 +2846,10 @@ function renderCases(){
         <div class="meta"><b>Franquia:</b> ${esc(item.franquia)}</div>
         <div class="meta"><b>Regional:</b> ${esc(item.regional)}</div>
         <div class="meta"><b>Data de cadastro:</b> ${dataCadastroDisplay(item)}</div>
-        <div class="meta"><b>Potencial de Replicação (Curadoria):</b> ${esc(potencialCuradoria(item))}</div>
+        <div class="meta"><b>Potencial de Replicação (Curadoria):</b> ${esc(potencialCuradoriaLabel(item))}</div>
         <div class="meta"><b>Parecer da Curadoria:</b> ${resumoCurto(item.parecer_curadoria, 140)}</div>
+        <div class="meta"><b>Revisor:</b> ${esc(item.revisor_curadoria)}</div>
+        <div class="meta"><b>Data da Curadoria:</b> ${dataCuradoriaDisplay(item)}</div>
         <div class="foot-row">
           <span></span>
           <button class="btn btn-ghost btn-sm" onclick="openSingleReview(${item.id})">${ic('wrench')} Construir Case</button>
@@ -2817,9 +2859,7 @@ function renderCases(){
 
   const novoEl = document.getElementById('casesNovoView');
   if(novoEl){
-    novoEl.innerHTML = novoList.length ? novoList.map(item => {
-      const potCur = potencialCuradoria(item);
-      return `
+    novoEl.innerHTML = novoList.length ? novoList.map(item => `
       <div class="card cat-card hoverable">
         <div class="top-row"><h4>${esc(item.nome)}</h4><span class="status-pill ${slug(statusOf(item.id))}">${esc(statusOf(item.id))}</span></div>
         <div class="badgerow">${modeloBadgeHtml(item)}</div>
@@ -2827,15 +2867,14 @@ function renderCases(){
         <div class="meta"><b>Regional:</b> ${esc(item.regional)}</div>
         <div class="meta"><b>Data de cadastro:</b> ${dataCadastroDisplay(item)}</div>
         <div class="meta"><b>Potencial informado pela franquia:</b> ${esc(item.potencial_replicacao_franquia)}</div>
-        <div class="meta"><b>Potencial definido pela Curadoria:</b> ${potCur ? esc(potCur) : '<span style="color:var(--gm);font-style:italic;">Ainda não avaliado</span>'}</div>
+        <div class="meta"><b>Potencial definido pela Curadoria:</b> ${esc(potencialCuradoriaLabel(item))}</div>
         <div class="meta"><b>Resumo do Case:</b> ${resumoCurto(item.case_situacao_motivo, 140)}</div>
         <div class="meta"><b>Parecer da Curadoria:</b> ${resumoCurto(item.parecer_curadoria, 140)}</div>
         <div class="foot-row">
           <span></span>
-          <button class="btn btn-ghost btn-sm" onclick="openSingleReview(${item.id})">${ic('eye')} Avaliar Case</button>
+          <button class="btn btn-ghost btn-sm" onclick="openSingleReview(${item.id})">${ic('eye')} Ver Case</button>
         </div>
-      </div>`;
-    }).join('') : `<div class="empty-state">${ic('trophy')}Nenhuma iniciativa do Novo Modelo com Case estruturado no momento.</div>`;
+      </div>`).join('') : `<div class="empty-state">${ic('trophy')}Nenhuma iniciativa do Novo Modelo com Case validada pela Curadoria no momento.</div>`;
   }
 }
 
