@@ -628,6 +628,7 @@ textarea.obs-field:focus, .edit-select:focus{outline:none;border-color:var(--t);
       <a class="navitem active" data-page="dashboard"><span class="ic"><svg class="icon" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg></span> Página Inicial</a>
       <a class="navitem" data-page="revisao"><span class="ic"><svg class="icon" viewBox="0 0 24 24"><path d="M13 3 4 14h7l-1 7 9-11h-7l1-7z"/></svg></span> Fila de Revisão</a>
       <a class="navitem" data-page="lista"><span class="ic"><svg class="icon" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span> Consultar Iniciativas</a>
+      <a class="navitem" data-page="cases"><span class="ic"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="1.5"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/></svg></span> Cases</a>
       <a class="navitem" data-page="indicadores"><span class="ic"><svg class="icon" viewBox="0 0 24 24"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg></span> Indicadores</a>
     </div>
     <div class="sidebar-foot">
@@ -701,6 +702,33 @@ textarea.obs-field:focus, .edit-select:focus{outline:none;border-color:var(--t);
               <span class="result-count" id="listaResultCount"></span>
             </div>
             <div class="cat-grid" id="listaCardsView"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== CASES (Etapa 3 — espaço preparatório) ===================== -->
+      <section class="page" id="page-cases">
+        <div class="sh">
+          <div class="tag">Biblioteca de Iniciativas Digitais</div>
+          <h2>Cases</h2>
+          <p>Espaço reservado para as iniciativas aprovadas pela Curadoria e aptas a alimentar a Biblioteca de Iniciativas Digitais.</p>
+        </div>
+        <div class="card" style="padding:36px 30px;">
+          <div style="display:flex;gap:16px;align-items:flex-start;">
+            <div style="color:var(--t);flex-shrink:0;"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="1.5"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/></svg></div>
+            <div>
+              <h3 style="color:var(--pd);margin-bottom:8px;">Ainda não há uma decisão formal de "Elegível para Case"</h3>
+              <p style="color:var(--gm);font-size:13.5px;line-height:1.6;margin-bottom:10px;">
+                Este espaço vai reunir, no futuro, apenas as iniciativas que passaram pela decisão explícita da Curadoria
+                (aprovadas para virar Case) — não simplesmente todas as iniciativas do Novo Modelo, nem todas com potencial Alto.
+              </p>
+              <p style="color:var(--gm);font-size:13.5px;line-height:1.6;margin-bottom:10px;">
+                Esse mecanismo de decisão (campo "Elegível para Case", status do Case, responsável, datas) ainda não foi implementado —
+                está previsto para uma próxima etapa. Por enquanto, continue usando a <b>Fila de Revisão</b> e
+                <b>Consultar Iniciativas</b> normalmente; o badge "Case estruturado pelo Portal" já indica ali quais
+                iniciativas chegam com os dados de Case prontos para leitura.
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -1733,6 +1761,7 @@ const PAGE_TITLES = {
   dashboard: 'Página Inicial',
   revisao: 'Fila de Revisão',
   lista: 'Consultar Iniciativas',
+  cases: 'Cases',
   indicadores: 'Indicadores',
 };
 
@@ -1817,6 +1846,58 @@ function marcarItensNovos(ultimoAcesso){
 
 function contarItensNovos(){
   return RAW_DATA.filter(item => item._novo).length;
+}
+
+/* ============================================================
+   ETAPA 3 — Legado × Novo Modelo (transição do Case)
+   ============================================================
+   Classificação 100% DERIVADA a partir da data de cadastro já existente
+   (item.data_hora_cadastro / coluna "Data e Hora do Cadastro" no SharePoint).
+   NÃO grava nada, NÃO cria coluna nova, NÃO altera nenhum registro — é só
+   para a interface decidir como mostrar cada iniciativa.
+   Regra combinada com a Regi:
+     data de cadastro <= 19/08/2026  → LEGADO
+     data de cadastro >= 20/08/2026  → NOVO MODELO
+     sem data (registro antigo migrado antes da coluna existir) → LEGADO
+   ============================================================ */
+const DATA_CORTE_CASE = new Date(2026, 7, 19, 23, 59, 59, 999); // 19/08/2026 23:59:59 (mês 7 = agosto, 0-indexado)
+
+/** 'legado' | 'novo' — nunca lança erro, mesmo com data ausente/ilegível. */
+function classificarModelo(item){
+  const d = parseDataCadastro(item && item.data_hora_cadastro);
+  if(!d) return 'legado'; // sem data → trata como legado (regra explícita)
+  return d.getTime() > DATA_CORTE_CASE.getTime() ? 'novo' : 'legado';
+}
+
+/** Rótulo amigável usado nos badges e no filtro "Modelo de Case". */
+function modeloLabel(item){
+  return classificarModelo(item) === 'novo' ? 'Case estruturado pelo Portal' : 'Case legado';
+}
+
+/** Badge visual — reaproveita o componente .badge já existente na Central. */
+function modeloBadgeHtml(item){
+  return classificarModelo(item) === 'novo'
+    ? `<span class="badge b-teal">${ic('sparkle')} Case estruturado pelo Portal</span>`
+    : `<span class="badge b-gray">Case legado — análise manual</span>`;
+}
+
+/** Os 12 campos de conteúdo do Case (Etapa 2/2B) — usados só para leitura aqui. */
+const CASE_CONTENT_FIELDS = [
+  'case_situacao_motivo','case_situacao_impacto','case_requer_investimento',
+  'case_investimentos_desc','case_como_implementado','case_ferramentas_utilizadas',
+  'case_areas_envolvidas','case_beneficios_obtidos','case_resultados_mensuraveis',
+  'case_cuidados_recomendados','case_pre_requisito','case_materiais_apoio'
+];
+
+/**
+ * Um item tem Case estruturado "de verdade" se PELO MENOS UM dos 12 campos tiver
+ * conteúdo. Cobre com segurança tanto registros legados (campos nem existem no
+ * objeto) quanto Novo Modelo sem Case (campos existem mas vêm vazios do SharePoint) —
+ * os dois casos resultam em `false`, sem lançar erro.
+ */
+function temCaseEstruturado(item){
+  if(!item) return false;
+  return CASE_CONTENT_FIELDS.some(f => String(item[f] || '').trim() !== '');
 }
 
 /**
@@ -1946,6 +2027,11 @@ function renderDashboard(){
   if(btnIniciar) btnIniciar.addEventListener('click', ()=> startReview('proxima_pendente'));
 
   const qtdNovos = contarItensNovos();
+  // Etapa 3 — contagem derivada (não gravada) de Legado x Novo Modelo, calculada só
+  // sobre iniciativas que efetivamente entram na Curadoria (mesmo recorte de dashboardStats).
+  const dadosParaModelo = RAW_DATA.filter(d => (d.status || '') !== 'Sem Iniciativa');
+  const qtdLegado = dadosParaModelo.filter(d => classificarModelo(d) === 'legado').length;
+  const qtdNovoComCase = dadosParaModelo.filter(d => classificarModelo(d) === 'novo' && temCaseEstruturado(d)).length;
   const kpis = [
     [ic('box'), RAW_DATA.length, 'Total de Respostas'],
     [ic('sparkle'), qtdNovos, 'Novos desde sua última visita'],
@@ -1954,6 +2040,8 @@ function renderDashboard(){
     [ic('box'), stats.total, 'Total de Iniciativas'],
     [ic('sparkle'), stats.pctConcluido + '%', 'Concluído'],
     [ic('question'), stats.necessitaRevisao, 'Necessita Revisão'],
+    [ic('book'), qtdLegado, 'Cases legados'],
+    [ic('briefcase'), qtdNovoComCase, 'Cases estruturados pelo Portal'],
   ];
   document.getElementById('kpiGrid').innerHTML = kpis.map(([icoHtml,val,lab],idx)=>`
     <div class="card kpi hoverable${idx===1 && qtdNovos>0 ? ' kpi-novo-destaque' : ''}">
@@ -2179,6 +2267,7 @@ function renderReviewCard(){
         <div class="rc-meta">
           <span>${esc(item.franquia)}</span><span>·</span><span>${esc(item.regional)}</span>
           <span>·</span><span>Status: ${esc(statusReviewLabel(item.id))}</span>
+          <span>·</span>${modeloBadgeHtml(item)}
         </div>
       </div>
       <div class="review-card-body">
@@ -2205,6 +2294,7 @@ function renderReviewCard(){
             <div class="ro-field"><div class="ro-k">Status Atual</div><div class="ro-v">${esc(item.status_atual)}</div></div>
             <div class="ro-field"><div class="ro-k">Indicador Operacional Impactado</div><div class="ro-v">${esc(item.area_impactada)}</div></div>
             <div class="ro-field"><div class="ro-k">Próximo Estágio</div><div class="ro-v">${esc(item.proximo_estagio)}</div></div>
+            <div class="ro-field"><div class="ro-k">Potencial de Replicação <span style="font-weight:400;color:var(--gm);">(autoavaliação da franquia)</span></div><div class="ro-v">${esc(item.potencial_replicacao_franquia)}</div></div>
           </div>
           <div class="ro-full"><div class="ro-full-k">Objetivo do Projeto</div><div class="ro-full-v">${descText(item.objetivo)}</div></div>
 
@@ -2233,6 +2323,47 @@ function renderReviewCard(){
             <div class="ro-field"><div class="ro-k">WhatsApp</div><div class="ro-v">${esc(item.responsavel_whatsapp)}</div></div>
           </div>
         </div>
+
+        ${classificarModelo(item) === 'novo' ? `
+        <div class="block1-wrap" style="margin-top:18px;">
+          <div class="block-title block1-title">${ic('briefcase')} Case Estruturado pelo Portal <span style="font-size:11px;font-weight:600;color:var(--gm);text-transform:none;">(preenchido pela própria franquia no cadastro — a Curadoria continua decidindo)</span></div>
+          ${temCaseEstruturado(item) ? `
+            <div class="ro-group-title">Situação</div>
+            <div class="ro-full"><div class="ro-full-k">Qual situação motivou a iniciativa?</div><div class="ro-full-v">${descText(item.case_situacao_motivo)}</div></div>
+            <div class="ro-full"><div class="ro-full-k">Como essa situação impactava a operação?</div><div class="ro-full-v">${descText(item.case_situacao_impacto)}</div></div>
+            <div class="block1-grid">
+              <div class="ro-field"><div class="ro-k">Requer investimentos?</div><div class="ro-v">${esc(item.case_requer_investimento)}</div></div>
+            </div>
+            <div class="ro-full"><div class="ro-full-k">Quais investimentos são necessários?</div><div class="ro-full-v">${descText(item.case_investimentos_desc)}</div></div>
+
+            <div class="ro-group-title">Implantação</div>
+            <div class="ro-full"><div class="ro-full-k">Como a iniciativa foi implementada?</div><div class="ro-full-v">${descText(item.case_como_implementado)}</div></div>
+            <div class="block1-grid">
+              <div class="ro-field"><div class="ro-k">Ferramentas utilizadas</div><div class="ro-v">${esc(item.case_ferramentas_utilizadas)}</div></div>
+              <div class="ro-field"><div class="ro-k">Áreas envolvidas</div><div class="ro-v">${esc(item.case_areas_envolvidas)}</div></div>
+            </div>
+
+            <div class="ro-group-title">Resultados</div>
+            <div class="ro-full"><div class="ro-full-k">Principais benefícios obtidos</div><div class="ro-full-v">${descText(item.case_beneficios_obtidos)}</div></div>
+            <div class="ro-full"><div class="ro-full-k">Resultados mensuráveis</div><div class="ro-full-v">${item.case_resultados_mensuraveis ? esc(item.case_resultados_mensuraveis) : '<span style="color:var(--gm);font-style:italic;">Não informado.</span>'}</div></div>
+
+            <div class="ro-group-title">Recomendações para Replicação</div>
+            <div class="ro-full"><div class="ro-full-k">Quais cuidados outra franquia deve ter?</div><div class="ro-full-v">${descText(item.case_cuidados_recomendados)}</div></div>
+            <div class="ro-full"><div class="ro-full-k">Existe algum pré-requisito importante?</div><div class="ro-full-v">${descText(item.case_pre_requisito)}</div></div>
+
+            ${item.case_materiais_apoio ? `
+            <div class="ro-group-title">Materiais de Apoio</div>
+            <div class="ro-full"><div class="ro-full-v">${esc(item.case_materiais_apoio)}</div></div>
+            ` : ''}
+          ` : `
+            <div class="ro-full"><div class="ro-full-v" style="color:var(--gm);font-style:italic;">
+              ${item.potencial_replicacao_franquia === 'Alto'
+                ? '⚠️ Esta iniciativa foi marcada pela franquia com potencial de replicação Alto, mas os dados de Case ainda não estão disponíveis nesta tela. Não preencha nem estime essas informações — trate como incompleto (pode ser necessário retornar o contato com a franquia ou verificar se o Case foi realmente preenchido no Portal).'
+                : 'Não há Case estruturado disponível para leitura — a franquia não indicou potencial de replicação Alto para esta iniciativa no cadastro.'}
+            </div></div>
+          `}
+        </div>
+        ` : ''}
 
         <div class="block2-wrap">
           <div class="block-title block2-title">${ic('target')} Curadoria da Iniciativa</div>
@@ -2462,7 +2593,7 @@ function showToast(msg){
 /* ============================================================
    CAMADA DE UI — parte 4: Lista de Consulta Manual
    ============================================================ */
-const ListaState = { search: '', filters: { regional:new Set(), franquia:new Set(), categoria:new Set(), status:new Set() } };
+const ListaState = { search: '', filters: { regional:new Set(), franquia:new Set(), categoria:new Set(), status:new Set(), modelo:new Set() } };
 
 /**
  * Retorna o status efetivo de uma iniciativa.
@@ -2520,6 +2651,7 @@ function buildListaFilterPanel(){
   document.getElementById('listaFilterPanel').innerHTML = `
     <button type="button" class="btn btn-ghost btn-sm" id="btnLimparFiltrosLista" style="width:100%;margin-bottom:10px;">${ic('x')} Limpar filtros</button>
     ${groupHtml('Status', 'status', statusList, true)}
+    ${groupHtml('Modelo de Case', 'modelo', ['Case legado','Case estruturado pelo Portal'], true)}
     ${groupHtml('Categoria', 'categoria', categorias, true)}
     ${groupHtml('Regional', 'regional', regionais, false)}
     ${groupHtml('Franquia', 'franquia', franquiasDisponiveis(), false)}
@@ -2530,6 +2662,7 @@ function buildListaFilterPanel(){
     ListaState.filters.franquia.clear();
     ListaState.filters.categoria.clear();
     ListaState.filters.status.clear();
+    ListaState.filters.modelo.clear();
     ListaState.search = '';
     const searchInput = document.getElementById('listaSearch');
     if(searchInput) searchInput.value = '';
@@ -2561,6 +2694,7 @@ function matchesListaFilters(d){
   const f = ListaState.filters;
   const st = statusOf(d.id);
   if(f.status.size && !f.status.has(st)) return false;
+  if(f.modelo.size && !f.modelo.has(modeloLabel(d))) return false;
   if(f.regional.size && !f.regional.has(d.regional)) return false;
   if(f.franquia.size && !f.franquia.has(d.franquia)) return false;
   if(f.categoria.size && !f.categoria.has(d.categoria_original || 'Sem categoria')) return false;
@@ -2587,6 +2721,7 @@ function renderListaResults(){
     return `<div class="card cat-card hoverable">
       <div class="top-row"><h4>${esc(d.nome)}${d._novo ? ' <span class="badge-novo">'+ic('sparkle')+' Novo</span>' : ''}</h4><span class="status-pill ${slug(st)}">${esc(st)}</span></div>
       <div class="badgerow">
+        ${modeloBadgeHtml(d)}
         ${badgeHtml(d.categoria_original || 'Sem categoria', CAT_COLOR[d.categoria_original||'Sem categoria']||'b-gray')}
         ${badgeHtml(d.regional.replace('Regional ',''),'b-navy')}
       </div>
