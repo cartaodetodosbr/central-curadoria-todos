@@ -3080,11 +3080,10 @@ function validateCaseForm(form){
 
 /**
  * Renderiza a tela de Construção do Case Manual (Legado).
- * Etapa "ativar gravação real": o formulário e o payload já estão prontos (Etapa 2
- * concluída), mas o botão "Salvar Case" continua desabilitado até a Regi confirmar
- * as Etapas 3 e 4 no Power Automate (Request Body do trigger + mapeamento dos 12
- * campos no Update item) — para nunca reportar "sucesso" enquanto o fluxo ainda não
- * grava esses campos de verdade. Ver handleSaveCase() para o fluxo de gravação real.
+ * Etapa "ativar gravação real": Etapas 1-4 concluídas — a Regi confirmou que o fluxo
+ * "Central Curadoria - Salvar Curadoria (SharePoint)" já mapeia os 12 campos de Case
+ * no Update item. Botão "Salvar Case" habilitado (Etapa 5 — teste controlado em
+ * andamento). Ver handleSaveCase() para o fluxo de gravação real.
  */
 function renderCaseBuilder(){
   const item = AppState.caseBuilderItem;
@@ -3126,10 +3125,9 @@ function renderCaseBuilder(){
           <div class="ro-full"><div class="ro-full-k">Parecer da Curadoria</div><div class="ro-full-v">${descText(parecerCuradoria(item))}</div></div>
         </div>
 
-        <div class="validation-banner" style="margin-top:18px;">
-          <div class="vb-title">${ic('question')} Gravação aguardando as Etapas 3 e 4 no Power Automate</div>
-          <div style="font-size:12.5px;color:#8a3a3a;line-height:1.6;">
-            O formulário abaixo e o payload de envio já estão prontos (Etapa 2 concluída). Mas o fluxo "Central Curadoria - Salvar Curadoria (SharePoint)" ainda não mapeia os 12 campos de Case no Update item — por isso o botão "Salvar Case" continua desabilitado por segurança, para nunca informar um sucesso que ainda não é real. Assim que as Etapas 3 e 4 (roteiro no Power Automate) forem confirmadas, eu habilito o botão antes do teste controlado da Etapa 5.
+        <div class="card" style="padding:14px 18px;margin-bottom:0;margin-top:18px;background:var(--bg);border:1px dashed var(--gl);">
+          <div style="font-size:12.5px;color:var(--gm);line-height:1.6;">
+            <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg> <b>Etapa 5 — teste controlado.</b> A Etapa 4 (mapeamento dos 12 campos de Case no Update item do fluxo "Salvar Curadoria") foi confirmada como salva. O botão "Salvar Case" agora envia de verdade. Use primeiro em <b>uma única iniciativa de teste</b> e confira diretamente no SharePoint antes de usar em iniciativas reais importantes — nenhum outro campo da curadoria é alterado por este envio.
           </div>
         </div>
 
@@ -3207,7 +3205,7 @@ function renderCaseBuilder(){
           <button class="btn btn-ghost btn-sm" id="btnVoltarCases">${ic('menu')} Voltar para Cases</button>
         </div>
         <div class="ra-right">
-          <button class="btn btn-primary btn-sm" id="btnSalvarCase" disabled title="Aguardando confirmação das Etapas 3 e 4 no Power Automate (ver aviso acima)">${ic('trophy')} Salvar Case</button>
+          <button class="btn btn-primary btn-sm" id="btnSalvarCase">${ic('trophy')} Salvar Case</button>
         </div>
       </div>
     </div>
@@ -3221,10 +3219,6 @@ function renderCaseBuilder(){
   const btnVoltar = document.getElementById('btnVoltarCases');
   if(btnVoltar) btnVoltar.addEventListener('click', ()=> goToPage('cases'));
 
-  // O botão continua "disabled" no HTML acima (ver comentário da função) — o listener
-  // é ligado de qualquer forma porque um botão disabled não dispara clique nenhum
-  // navegador; assim, quando eu remover o "disabled" (após a Regi confirmar as
-  // Etapas 3/4), o salvamento já funciona sem precisar de mais nenhuma alteração de JS.
   const btnSalvar = document.getElementById('btnSalvarCase');
   if(btnSalvar) btnSalvar.addEventListener('click', handleSaveCase);
 }
