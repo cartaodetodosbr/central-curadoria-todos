@@ -980,6 +980,27 @@ const ApiService = (function () {
       nota_reconhecimento: Number(dados.nota),
       parecer_curadoria: dados.parecer,
       revisor: dados.revisor,
+      // ---- Etapa "ativar gravação real dos Cases Manuais" ----
+      // Os 12 campos de Case são SEMPRE enviados, tanto ao salvar uma curadoria comum
+      // quanto ao salvar um Case — nunca como "undefined". Cada chamador (handleSave,
+      // na Fila de Revisão, ou handleSaveCase, na Construção do Case) é responsável por
+      // passar o valor CORRETO para o que ele não está editando: o valor atual/já
+      // gravado do item, nunca uma string vazia por omissão. Isso evita depender de um
+      // comportamento não confirmado do Update item do Power Automate ao receber um
+      // campo ausente/vazio (limpar ou preservar) — aqui simplesmente nunca mandamos
+      // "vazio" para um campo que não deveria mudar.
+      case_situacao_motivo: dados.case_situacao_motivo || '',
+      case_situacao_impacto: dados.case_situacao_impacto || '',
+      case_requer_investimento: dados.case_requer_investimento || '',
+      case_investimentos_desc: dados.case_investimentos_desc || '',
+      case_como_implementado: dados.case_como_implementado || '',
+      case_ferramentas_utilizadas: dados.case_ferramentas_utilizadas || '',
+      case_areas_envolvidas: dados.case_areas_envolvidas || '',
+      case_beneficios_obtidos: dados.case_beneficios_obtidos || '',
+      case_resultados_mensuraveis: dados.case_resultados_mensuraveis || '',
+      case_cuidados_recomendados: dados.case_cuidados_recomendados || '',
+      case_pre_requisito: dados.case_pre_requisito || '',
+      case_materiais_apoio: dados.case_materiais_apoio || '',
     };
     const resp = await fetch(API_SALVAR_CURADORIA, {
       method: 'POST',
@@ -1985,6 +2006,29 @@ function categoriaOficialCuradoria(item){
 }
 
 /**
+ * Nota de Reconhecimento / Parecer / Revisor DEFINIDOS PELA CURADORIA — mesmo padrão
+ * de precedência das funções acima. Usadas pela tela de Construção do Case para
+ * reenviar, sem alterar, os campos de curadoria já gravados quando o que está sendo
+ * salvo é só o Case (ver ApiService.salvarCuradoria — nunca envia um desses campos
+ * "vazio" por engano, o que arriscaria apagar dado já gravado no SharePoint).
+ */
+function notaCuradoria(item){
+  const local = ValidationRepository.getById(item.id);
+  if(local) return local.potencial_reconhecimento || 0;
+  return item.nota_reconhecimento || 0;
+}
+function parecerCuradoria(item){
+  const local = ValidationRepository.getById(item.id);
+  if(local) return local.parecer_curadoria || '';
+  return item.parecer_curadoria || '';
+}
+function revisorCuradoria(item){
+  const local = ValidationRepository.getById(item.id);
+  if(local) return local.revisor || '';
+  return item.revisor_curadoria || '';
+}
+
+/**
  * Legado, já validado pela Curadoria (statusOf === 'Validada'), com potencial ALTO
  * definido pela CURADORIA (não a autoavaliação da franquia) → entra na esteira de
  * Case Manual. Não coloca automaticamente todo legado — só quem passou pelo crivo.
@@ -2695,10 +2739,25 @@ async function handleSave(mode){
     try {
       // Envia o JSON de curadoria para o Power Automate (Fluxo "Central Curadoria -
       // Salvar Curadoria (SharePoint)"), que faz Update item na Lista "Iniciativas".
+      // Os 12 campos de Case vêm do próprio "item" (valor atual, já persistido no
+      // SharePoint via normalizeIniciativa) — esta tela não os edita, então eles
+      // precisam ir inalterados, nunca vazios (ver comentário em ApiService.salvarCuradoria).
       await ApiService.salvarCuradoria({
         id: item.id,
         categoria: draft.categoria, potencial: draft.potencial,
         nota: draft.nota, parecer: draft.parecer, revisor: AppState.revisor,
+        case_situacao_motivo: item.case_situacao_motivo,
+        case_situacao_impacto: item.case_situacao_impacto,
+        case_requer_investimento: item.case_requer_investimento,
+        case_investimentos_desc: item.case_investimentos_desc,
+        case_como_implementado: item.case_como_implementado,
+        case_ferramentas_utilizadas: item.case_ferramentas_utilizadas,
+        case_areas_envolvidas: item.case_areas_envolvidas,
+        case_beneficios_obtidos: item.case_beneficios_obtidos,
+        case_resultados_mensuraveis: item.case_resultados_mensuraveis,
+        case_cuidados_recomendados: item.case_cuidados_recomendados,
+        case_pre_requisito: item.case_pre_requisito,
+        case_materiais_apoio: item.case_materiais_apoio,
       });
     } catch (err) {
       console.error('[handleSave] Falha ao enviar curadoria ao Power Automate:', err);
@@ -2985,13 +3044,47 @@ function abrirConstrucaoCase(id){
 }
 
 /**
- * Renderiza a tela de Construção do Case Manual (Legado). NÃO GRAVA NADA — os 12
- * campos de Case já existem como colunas no SharePoint (Etapa 2A), mas o fluxo
- * "Central Curadoria - Salvar Curadoria (SharePoint)" (o único que hoje grava a
- * curadoria de volta no SharePoint) ainda não mapeia esses 12 campos no Update
- * item, e esta tela ainda não envia nada para nenhum fluxo. Por isso o botão
- * "Salvar Case" fica desabilitado, com o motivo explicado no banner — nada de
- * gravação local/fake (localStorage, IndexedDB, variável simulando persistência).
+ * Etapa "ativar gravação real" — os 12 campos de conteúdo do Case, obrigatórios com
+ * mínimo de 100 caracteres (regra definida pela Regi, seção 8). "Ferramentas
+ * utilizadas" e "Áreas envolvidas" são obrigatórios SEM mínimo de caracteres.
+ * "Resultados mensuráveis" e "Materiais de apoio" são opcionais.
+ */
+const CASE_CAMPOS_MIN100 = [
+  ['case_situacao_motivo', 'Qual situação motivou a iniciativa?'],
+  ['case_situacao_impacto', 'Como essa situação impactava a operação?'],
+  ['case_como_implementado', 'Como a iniciativa foi implementada?'],
+  ['case_beneficios_obtidos', 'Quais foram os principais benefícios obtidos?'],
+  ['case_cuidados_recomendados', 'Quais cuidados outra franquia deve ter?'],
+  ['case_pre_requisito', 'Existe algum pré-requisito importante?'],
+];
+
+/** Valida o formulário de Construção do Case. Retorna lista de erros (vazia = ok). */
+function validateCaseForm(form){
+  const erros = [];
+  CASE_CAMPOS_MIN100.forEach(([campo, label])=>{
+    const v = (form[campo] || '').trim();
+    if(!v) erros.push(`Preencha: ${label}`);
+    else if(v.length < 100) erros.push(`"${label}" precisa de pelo menos 100 caracteres (hoje tem ${v.length}).`);
+  });
+  if(!form.case_requer_investimento) erros.push('Selecione se a implantação requer investimentos (Sim/Não).');
+  if(form.case_requer_investimento === 'Sim'){
+    const v = (form.case_investimentos_desc || '').trim();
+    if(!v) erros.push('Preencha: Quais investimentos são necessários?');
+    else if(v.length < 100) erros.push(`"Quais investimentos são necessários?" precisa de pelo menos 100 caracteres (hoje tem ${v.length}).`);
+  }
+  if(!(form.case_ferramentas_utilizadas || '').trim()) erros.push('Preencha: Ferramentas utilizadas');
+  if(!(form.case_areas_envolvidas || '').trim()) erros.push('Preencha: Áreas envolvidas');
+  // case_resultados_mensuraveis e case_materiais_apoio são opcionais — sem validação.
+  return erros;
+}
+
+/**
+ * Renderiza a tela de Construção do Case Manual (Legado).
+ * Etapa "ativar gravação real": o formulário e o payload já estão prontos (Etapa 2
+ * concluída), mas o botão "Salvar Case" continua desabilitado até a Regi confirmar
+ * as Etapas 3 e 4 no Power Automate (Request Body do trigger + mapeamento dos 12
+ * campos no Update item) — para nunca reportar "sucesso" enquanto o fluxo ainda não
+ * grava esses campos de verdade. Ver handleSaveCase() para o fluxo de gravação real.
  */
 function renderCaseBuilder(){
   const item = AppState.caseBuilderItem;
@@ -3001,6 +3094,11 @@ function renderCaseBuilder(){
     shell.innerHTML = `<div class="empty-state">${ic('question')}Nenhuma iniciativa selecionada. Volte para Cases e clique em "Construir Case" novamente.</div>`;
     return;
   }
+
+  // Pré-preenche com o que já existe no registro (SharePoint) — nunca abre em branco
+  // se o Case já tiver algum conteúdo (ex.: reabrir para revisar/editar).
+  const v = (campo) => item[campo] ? esc(item[campo]) : '';
+  const requerInv = item.case_requer_investimento || '';
 
   shell.innerHTML = `
     <div class="review-card">
@@ -3023,82 +3121,83 @@ function renderCaseBuilder(){
             <div class="ro-field"><div class="ro-k">Cidade</div><div class="ro-v">${esc(item.cidade)}</div></div>
             <div class="ro-field"><div class="ro-k">Categoria</div><div class="ro-v">${esc(categoriaOficialCuradoria(item) || '—')}</div></div>
             <div class="ro-field"><div class="ro-k">Potencial de Replicação (Curadoria)</div><div class="ro-v">${esc(potencialCuradoriaLabel(item) || '—')}</div></div>
-            <div class="ro-field"><div class="ro-k">Revisor</div><div class="ro-v">${esc(item.revisor_curadoria || '—')}</div></div>
+            <div class="ro-field"><div class="ro-k">Revisor</div><div class="ro-v">${esc(revisorCuradoria(item) || '—')}</div></div>
           </div>
-          <div class="ro-full"><div class="ro-full-k">Parecer da Curadoria</div><div class="ro-full-v">${descText(item.parecer_curadoria)}</div></div>
+          <div class="ro-full"><div class="ro-full-k">Parecer da Curadoria</div><div class="ro-full-v">${descText(parecerCuradoria(item))}</div></div>
         </div>
 
         <div class="validation-banner" style="margin-top:18px;">
-          <div class="vb-title">${ic('question')} Gravação ainda não disponível — backend pendente</div>
+          <div class="vb-title">${ic('question')} Gravação aguardando as Etapas 3 e 4 no Power Automate</div>
           <div style="font-size:12.5px;color:#8a3a3a;line-height:1.6;">
-            Os 12 campos de Case já existem como colunas na Lista do SharePoint (criados na Etapa 2A e já usados pelo Case do Novo Modelo). Porém o fluxo "Central Curadoria - Salvar Curadoria (SharePoint)" — o único que hoje grava a curadoria de volta no SharePoint — ainda não mapeia esses 12 campos no Update item, e esta tela ainda não envia esses dados para nenhum fluxo.<br><br>
-            Por isso este formulário é só uma interface de preparação: dá para preencher e visualizar o Case, mas <b>nada digitado aqui é salvo</b> — nem no SharePoint, nem localmente nesta sessão. Se você sair desta tela, o texto é perdido.<br><br>
-            Para ativar a gravação real, são necessários dois passos: (1) autorizar a atualização do fluxo "Salvar Curadoria" para mapear os 12 campos de Case no Update item (mesma técnica usada na Etapa 2B para o fluxo do Portal); (2) eu atualizar o payload enviado por esta tela para incluir esses campos. Nenhum dos dois foi feito nesta rodada — sem sua autorização, como combinado.
+            O formulário abaixo e o payload de envio já estão prontos (Etapa 2 concluída). Mas o fluxo "Central Curadoria - Salvar Curadoria (SharePoint)" ainda não mapeia os 12 campos de Case no Update item — por isso o botão "Salvar Case" continua desabilitado por segurança, para nunca informar um sucesso que ainda não é real. Assim que as Etapas 3 e 4 (roteiro no Power Automate) forem confirmadas, eu habilito o botão antes do teste controlado da Etapa 5.
           </div>
         </div>
+
+        <div id="caseBuilderErrors"></div>
+        <div id="caseBuilderSuccess"></div>
 
         <div class="block2-wrap" style="margin-top:18px;">
           <div class="block-title block2-title">${ic('briefcase')} Construção do Case</div>
 
           <div class="ro-group-title">Situação</div>
           <div class="review-block">
-            <div class="rb-label">Qual situação motivou a iniciativa?</div>
-            <textarea class="obs-field" id="cbSituacaoMotivo" placeholder="Descreva o contexto/problema que motivou a iniciativa..."></textarea>
+            <div class="rb-label">Qual situação motivou a iniciativa? <span class="req-star">*</span><span class="rb-hint">mínimo 100 caracteres</span></div>
+            <textarea class="obs-field" id="cbSituacaoMotivo" placeholder="Descreva o contexto/problema que motivou a iniciativa...">${v('case_situacao_motivo')}</textarea>
           </div>
           <div class="review-block">
-            <div class="rb-label">Como essa situação impactava a operação?</div>
-            <textarea class="obs-field" id="cbSituacaoImpacto" placeholder="Descreva o impacto na operação antes da iniciativa..."></textarea>
+            <div class="rb-label">Como essa situação impactava a operação? <span class="req-star">*</span><span class="rb-hint">mínimo 100 caracteres</span></div>
+            <textarea class="obs-field" id="cbSituacaoImpacto" placeholder="Descreva o impacto na operação antes da iniciativa...">${v('case_situacao_impacto')}</textarea>
           </div>
           <div class="review-block">
-            <div class="rb-label">A implantação da iniciativa requer investimentos?</div>
+            <div class="rb-label">A implantação da iniciativa requer investimentos? <span class="req-star">*</span></div>
             <div class="radio-pill-row" id="cbRequerInvestimento">
-              <button type="button" class="radio-pill" data-val="Sim">Sim</button>
-              <button type="button" class="radio-pill" data-val="Não">Não</button>
+              <button type="button" class="radio-pill ${requerInv==='Sim'?'on':''}" data-val="Sim">Sim</button>
+              <button type="button" class="radio-pill ${requerInv==='Não'?'on':''}" data-val="Não">Não</button>
             </div>
           </div>
-          <div class="review-block" id="cbInvestimentosWrap" style="display:none;">
-            <div class="rb-label">Quais investimentos são necessários?</div>
-            <textarea class="obs-field" id="cbInvestimentosDesc" placeholder="Descreva os investimentos necessários..."></textarea>
+          <div class="review-block" id="cbInvestimentosWrap" style="${requerInv==='Sim'?'':'display:none;'}">
+            <div class="rb-label">Quais investimentos são necessários? <span class="req-star">*</span><span class="rb-hint">mínimo 100 caracteres</span></div>
+            <textarea class="obs-field" id="cbInvestimentosDesc" placeholder="Descreva os investimentos necessários...">${v('case_investimentos_desc')}</textarea>
           </div>
 
           <div class="ro-group-title">Implantação</div>
           <div class="review-block">
-            <div class="rb-label">Como a iniciativa foi implementada?</div>
-            <textarea class="obs-field" id="cbComoImplementado" placeholder="Descreva como a iniciativa foi implementada..."></textarea>
+            <div class="rb-label">Como a iniciativa foi implementada? <span class="req-star">*</span><span class="rb-hint">mínimo 100 caracteres</span></div>
+            <textarea class="obs-field" id="cbComoImplementado" placeholder="Descreva como a iniciativa foi implementada...">${v('case_como_implementado')}</textarea>
           </div>
           <div class="review-block">
-            <div class="rb-label">Ferramentas utilizadas</div>
-            <textarea class="obs-field" id="cbFerramentasUtilizadas" placeholder="Liste as ferramentas utilizadas..."></textarea>
+            <div class="rb-label">Ferramentas utilizadas <span class="req-star">*</span></div>
+            <textarea class="obs-field" id="cbFerramentasUtilizadas" placeholder="Liste as ferramentas utilizadas...">${v('case_ferramentas_utilizadas')}</textarea>
           </div>
           <div class="review-block">
-            <div class="rb-label">Áreas envolvidas</div>
-            <textarea class="obs-field" id="cbAreasEnvolvidas" placeholder="Liste as áreas envolvidas..."></textarea>
+            <div class="rb-label">Áreas envolvidas <span class="req-star">*</span></div>
+            <textarea class="obs-field" id="cbAreasEnvolvidas" placeholder="Liste as áreas envolvidas...">${v('case_areas_envolvidas')}</textarea>
           </div>
 
           <div class="ro-group-title">Resultados</div>
           <div class="review-block">
-            <div class="rb-label">Quais foram os principais benefícios obtidos?</div>
-            <textarea class="obs-field" id="cbBeneficiosObtidos" placeholder="Descreva os benefícios obtidos..."></textarea>
+            <div class="rb-label">Quais foram os principais benefícios obtidos? <span class="req-star">*</span><span class="rb-hint">mínimo 100 caracteres</span></div>
+            <textarea class="obs-field" id="cbBeneficiosObtidos" placeholder="Descreva os benefícios obtidos...">${v('case_beneficios_obtidos')}</textarea>
           </div>
           <div class="review-block">
             <div class="rb-label">Resultados mensuráveis <span class="rb-hint">campo opcional</span></div>
-            <textarea class="obs-field" id="cbResultadosMensuraveis" placeholder="Números, indicadores, percentuais (se houver)..."></textarea>
+            <textarea class="obs-field" id="cbResultadosMensuraveis" placeholder="Números, indicadores, percentuais (se houver)...">${v('case_resultados_mensuraveis')}</textarea>
           </div>
 
           <div class="ro-group-title">Recomendações</div>
           <div class="review-block">
-            <div class="rb-label">Quais cuidados outra franquia deve ter?</div>
-            <textarea class="obs-field" id="cbCuidadosRecomendados" placeholder="Descreva os cuidados recomendados..."></textarea>
+            <div class="rb-label">Quais cuidados outra franquia deve ter? <span class="req-star">*</span><span class="rb-hint">mínimo 100 caracteres</span></div>
+            <textarea class="obs-field" id="cbCuidadosRecomendados" placeholder="Descreva os cuidados recomendados...">${v('case_cuidados_recomendados')}</textarea>
           </div>
           <div class="review-block">
-            <div class="rb-label">Existe algum pré-requisito importante?</div>
-            <textarea class="obs-field" id="cbPreRequisito" placeholder="Descreva pré-requisitos, se houver..."></textarea>
+            <div class="rb-label">Existe algum pré-requisito importante? <span class="req-star">*</span><span class="rb-hint">mínimo 100 caracteres</span></div>
+            <textarea class="obs-field" id="cbPreRequisito" placeholder="Descreva pré-requisitos, se houver...">${v('case_pre_requisito')}</textarea>
           </div>
 
           <div class="ro-group-title">Materiais de Apoio</div>
           <div class="review-block">
             <div class="rb-label">Anexos, links, imagens e documentos <span class="rb-hint">campo opcional — upload de arquivos não está disponível nesta tela; use links</span></div>
-            <textarea class="obs-field" id="cbMateriaisApoio" placeholder="Cole links de materiais de apoio (Drive, SharePoint, etc.)..."></textarea>
+            <textarea class="obs-field" id="cbMateriaisApoio" placeholder="Cole links de materiais de apoio (Drive, SharePoint, etc.)...">${v('case_materiais_apoio')}</textarea>
           </div>
 
         </div>
@@ -3108,7 +3207,7 @@ function renderCaseBuilder(){
           <button class="btn btn-ghost btn-sm" id="btnVoltarCases">${ic('menu')} Voltar para Cases</button>
         </div>
         <div class="ra-right">
-          <button class="btn btn-primary btn-sm" id="btnSalvarCase" disabled title="Gravação indisponível — backend pendente (ver aviso acima)">${ic('trophy')} Salvar Case</button>
+          <button class="btn btn-primary btn-sm" id="btnSalvarCase" disabled title="Aguardando confirmação das Etapas 3 e 4 no Power Automate (ver aviso acima)">${ic('trophy')} Salvar Case</button>
         </div>
       </div>
     </div>
@@ -3121,6 +3220,103 @@ function renderCaseBuilder(){
 
   const btnVoltar = document.getElementById('btnVoltarCases');
   if(btnVoltar) btnVoltar.addEventListener('click', ()=> goToPage('cases'));
+
+  // O botão continua "disabled" no HTML acima (ver comentário da função) — o listener
+  // é ligado de qualquer forma porque um botão disabled não dispara clique nenhum
+  // navegador; assim, quando eu remover o "disabled" (após a Regi confirmar as
+  // Etapas 3/4), o salvamento já funciona sem precisar de mais nenhuma alteração de JS.
+  const btnSalvar = document.getElementById('btnSalvarCase');
+  if(btnSalvar) btnSalvar.addEventListener('click', handleSaveCase);
+}
+
+/** Lê os 12 campos do formulário de Construção do Case a partir do DOM. */
+function readCaseForm(){
+  const requerEl = document.querySelector('#cbRequerInvestimento .radio-pill.on');
+  return {
+    case_situacao_motivo: document.getElementById('cbSituacaoMotivo').value.trim(),
+    case_situacao_impacto: document.getElementById('cbSituacaoImpacto').value.trim(),
+    case_requer_investimento: requerEl ? requerEl.dataset.val : '',
+    case_investimentos_desc: document.getElementById('cbInvestimentosDesc').value.trim(),
+    case_como_implementado: document.getElementById('cbComoImplementado').value.trim(),
+    case_ferramentas_utilizadas: document.getElementById('cbFerramentasUtilizadas').value.trim(),
+    case_areas_envolvidas: document.getElementById('cbAreasEnvolvidas').value.trim(),
+    case_beneficios_obtidos: document.getElementById('cbBeneficiosObtidos').value.trim(),
+    case_resultados_mensuraveis: document.getElementById('cbResultadosMensuraveis').value.trim(),
+    case_cuidados_recomendados: document.getElementById('cbCuidadosRecomendados').value.trim(),
+    case_pre_requisito: document.getElementById('cbPreRequisito').value.trim(),
+    case_materiais_apoio: document.getElementById('cbMateriaisApoio').value.trim(),
+  };
+}
+
+/**
+ * Salva o Case da tela de Construção do Case. Regras de segurança (pedido da Regi):
+ * - Valida tudo antes de enviar; impede envio se houver erro (nunca limpa os campos).
+ * - Envia para o MESMO fluxo/Update item da curadoria comum, com o MESMO "id" — nunca
+ *   cria um item novo (ver ApiService.salvarCuradoria: sempre "id: Number(dados.id)").
+ * - Reenvia os campos de curadoria (categoria/potencial/nota/parecer/revisor) com o
+ *   valor JÁ GRAVADO (via categoriaOficialCuradoria/potencialCuradoria/etc.), nunca um
+ *   valor novo — esta tela só edita os 12 campos de Case.
+ * - Só mostra "sucesso" depois da resposta HTTP realmente vir OK; em caso de erro,
+ *   mostra mensagem de falha e MANTÉM os dados preenchidos para nova tentativa.
+ */
+async function handleSaveCase(){
+  const item = AppState.caseBuilderItem;
+  if(!item) return;
+
+  const form = readCaseForm();
+  const erros = validateCaseForm(form);
+  const errBox = document.getElementById('caseBuilderErrors');
+  const okBox = document.getElementById('caseBuilderSuccess');
+  if(okBox) okBox.innerHTML = '';
+
+  if(erros.length){
+    errBox.innerHTML = `
+      <div class="validation-banner">
+        <div class="vb-title">${ic('question')} Não é possível salvar — preencha os campos abaixo:</div>
+        <ul>${erros.map(e=>`<li>${esc(e)}</li>`).join('')}</ul>
+      </div>`;
+    errBox.scrollIntoView({behavior:'smooth', block:'start'});
+    return;
+  }
+  errBox.innerHTML = '';
+
+  const btn = document.getElementById('btnSalvarCase');
+  const labelOriginal = btn.innerHTML;
+  btn.disabled = true;
+  btn.textContent = 'Salvando…';
+  try {
+    await ApiService.salvarCuradoria({
+      id: item.id,
+      // Campos da curadoria comum: reenviados com o valor JÁ GRAVADO, sem alteração —
+      // esta tela não edita categoria/potencial/nota/parecer/revisor.
+      categoria: categoriaOficialCuradoria(item),
+      potencial: potencialCuradoria(item),
+      nota: notaCuradoria(item),
+      parecer: parecerCuradoria(item),
+      revisor: revisorCuradoria(item),
+      // Os 12 campos de Case — estes sim, recém-preenchidos nesta tela.
+      ...form,
+    });
+  } catch (err) {
+    console.error('[handleSaveCase] Falha ao salvar Case no Power Automate:', err);
+    errBox.innerHTML = `
+      <div class="validation-banner">
+        <div class="vb-title">${ic('question')} Não foi possível salvar o Case</div>
+        <ul><li>${esc(err.message)}</li><li>Nada foi gravado no SharePoint. Os dados preenchidos nesta tela NÃO foram perdidos — verifique sua conexão e tente novamente.</li></ul>
+      </div>`;
+    errBox.scrollIntoView({behavior:'smooth', block:'start'});
+    btn.disabled = false;
+    btn.innerHTML = labelOriginal;
+    return; // não marca sucesso, não altera o item local — a gravação real falhou
+  }
+
+  // Sucesso confirmado pela resposta HTTP do Power Automate — só agora atualiza o
+  // registro local (mesmo "item" referenciado por RAW_DATA, sem duplicar nada) e a tela.
+  Object.assign(item, form);
+  btn.disabled = false;
+  btn.innerHTML = labelOriginal;
+  showToast('Case salvo com sucesso.');
+  if(okBox) okBox.innerHTML = `<div class="card" style="padding:12px 18px;margin-bottom:20px;background:#EAF7F0;border:1.5px solid #BEE6CE;border-radius:var(--r);font-size:12.5px;color:#1E7A45;font-weight:600;">${ic('trophy')} Case salvo com sucesso no SharePoint.</div>`;
 }
 
 function renderLista(){
