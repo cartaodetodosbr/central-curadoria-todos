@@ -312,7 +312,7 @@ tbody tr:last-child td{border-bottom:none;}
 .empty-state{padding:60px 20px;text-align:center;color:var(--gm);}
 .empty-state svg{width:34px;height:34px;margin-bottom:10px;color:var(--gl);}
 
-.overlay{position:fixed;inset:0;background:rgba(0,50,40,.45);backdrop-filter:blur(2px);z-index:200;opacity:0;pointer-events:none;transition:opacity .2s;}
+.overlay{position:fixed;inset:0;background:rgba(0,50,40,.45);backdrop-filter:blur(2px);z-index:200;opacity:0;pointer-events:none;transition:opacity .2s;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;}
 .overlay.open{opacity:1;pointer-events:auto;}
 .drawer{
   position:fixed;top:0;right:0;bottom:0;width:min(460px,92vw);background:#fff;z-index:210;
@@ -480,6 +480,18 @@ textarea.obs-field:focus, .edit-select:focus{outline:none;border-color:var(--t);
 .status-pill.Emrevisao{background:#FFF3D6;color:#93700B;}
 .status-pill.Validada{background:#E1F3E6;color:var(--p);}
 .status-pill.Necessitarevisao{background:#FBE4E4;color:#B33636;}
+
+/* Badge do StatusCase (ciclo de validação do próprio Case) — deliberadamente um
+   componente visual DIFERENTE do .status-pill (Status geral da iniciativa) e do
+   .badge (Modelo/Potencial), para não misturar os três conceitos na mesma tela. */
+.case-status-badge{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;padding:3px 11px 3px 9px;border-radius:20px;border:1px solid transparent;}
+.case-status-badge .dot{width:7px;height:7px;border-radius:50%;flex:none;}
+.case-status-badge.Pendente{background:#F1F0EC;color:#6B6B60;}
+.case-status-badge.Pendente .dot{background:#9C9C8F;}
+.case-status-badge.Emvalidacao{background:#FFF3D6;color:#93700B;}
+.case-status-badge.Emvalidacao .dot{background:#C98A0A;}
+.case-status-badge.ProntoparaBiblioteca{background:#E1F3E6;color:#1E7A45;}
+.case-status-badge.ProntoparaBiblioteca .dot{background:#2E9A5C;}
 
 /* lista de auditoria */
 .audit-row{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gl);font-size:12.5px;}
@@ -1029,8 +1041,8 @@ const ApiService = (function () {
       nota_reconhecimento: Number(dados.nota),
       parecer_curadoria: dados.parecer,
       revisor: dados.revisor,
-      // StatusCase: decidido sempre pelo chamador (front-end), nunca aqui — ver
-      // calcularStatusCaseAoValidar / calcularStatusCaseAoSalvarCase.
+      // StatusCase: decidido sempre pelo chamador (front-end) — nunca aqui e nunca
+      // automaticamente. É o auditor quem escolhe (lerStatusCaseSelecionado()).
       status_case: dados.status_case || '',
       // ---- Etapa "ativar gravação real dos Cases Manuais" ----
       // Os 12 campos de Case são SEMPRE enviados, tanto ao salvar uma curadoria comum
@@ -1840,19 +1852,20 @@ function precomputeAreas(){
 
 const AppState = {
   revisor: '',
-  currentStrategy: 'proxima_pendente',
-  currentQueue: null, // null = fila nunca foi iniciada nesta sessão (distinto de [] = fila vazia/concluída)
-  currentIndex: 0,
+  // Fila de Revisão simplificada: sempre a lista de pendentes (getIniciativasPendentes())
+  // recalculada na hora — nunca um índice guardado. currentQueue[0] é sempre "a iniciativa
+  // atual". null = ainda não entrou na Fila nesta visita à página.
+  currentQueue: null,
   currentDraft: null, // formulário em edição da iniciativa atual
   // Correção do bug "Fila de Revisão presa no item avulso": abrir uma iniciativa a partir
-  // de Consultar Iniciativas NÃO deve mais sobrescrever currentQueue/currentIndex (a fila
-  // real). Em vez disso, usa este estado separado, para que voltar à Fila de Revisão pelo
-  // menu sempre retome a fila de verdade, na posição em que o curador estava.
+  // de Consultar Iniciativas NÃO deve mais sobrescrever currentQueue (a fila real). Em vez
+  // disso, usa este estado separado, para que voltar à Fila de Revisão pelo menu sempre
+  // mostre a fila de verdade (a primeira pendente), nunca o item avulso.
   viewingAdHoc: false,
   adHocItem: null,
   // Correção do Problema 1 (rodada "Construção do Case"): a iniciativa aberta na tela
-  // dedicada de Construção do Case Manual. Estado 100% separado de currentQueue/
-  // currentIndex e de viewingAdHoc/adHocItem — nada aqui toca a Fila de Revisão.
+  // dedicada de Construção do Case Manual. Estado 100% separado de currentQueue e de
+  // viewingAdHoc/adHocItem — nada aqui toca a Fila de Revisão.
   caseBuilderItem: null,
 };
 
@@ -1881,10 +1894,11 @@ function goToPage(page){
   if(page==='lista') renderLista();
   if(page==='indicadores') renderIndicadores();
   if(page==='cases') renderCases();
-  // Clicar direto em "Fila de Revisão" sem antes clicar em "Iniciar Revisão" deixava a
-  // página em branco. Agora, nesse caso, a fila é montada sozinha (mesmo comportamento
-  // de clicar "Iniciar Revisão") — e sempre checando na nuvem quem outros revisores já curaram.
-  if(page==='revisao' && AppState.currentQueue === null && !AppState.viewingAdHoc) buildQueueAndRender();
+  // Fila de Revisão simplificada: toda vez que a página é aberta (menu, botão "Iniciar
+  // Revisão", ou direto após o login, sem precisar passar por Consultar Iniciativas
+  // antes), ela recalcula a primeira iniciativa Pendente do zero — nunca depende de um
+  // estado deixado por outra tela nem de uma fila montada anteriormente.
+  if(page==='revisao' && !AppState.viewingAdHoc) buildQueueAndRender();
   location.hash = page;
 }
 
@@ -1893,16 +1907,13 @@ document.addEventListener('click', (e)=>{
   if(nav){
     e.preventDefault();
     const page = nav.dataset.page;
-    if(page==='revisao' && AppState.viewingAdHoc){
-      // Curador clicou em "Fila de Revisão" pelo menu depois de ter aberto uma iniciativa
-      // avulsa a partir de "Consultar Iniciativas" — sai do modo avulso e volta para a fila
-      // real, retomando a posição em que estava (ou montando a fila, se ainda não existia).
+    if(page==='revisao'){
+      // Clicar em "Fila de Revisão" pelo menu sempre sai do modo avulso (item aberto a
+      // partir de "Consultar Iniciativas") e mostra a fila de verdade — goToPage já
+      // recalcula a primeira pendente sozinho.
       AppState.viewingAdHoc = false;
-      goToPage(page);
-      if(AppState.currentQueue !== null) renderReviewCard();
-    } else {
-      goToPage(page);
     }
+    goToPage(page);
   }
 });
 document.getElementById('menuBtn').addEventListener('click', ()=>{
@@ -2081,45 +2092,35 @@ function revisorCuradoria(item){
 }
 
 /* ============================================================
-   STATUSCASE — ciclo de vida do Case (Gate 4), independente do Status geral
+   STATUSCASE — ciclo de vida da REVISÃO do Case, independente do Status geral
    da iniciativa/curadoria. Backend já grava e devolve StatusCase (Gates 2/3).
+
+   Valores oficiais (decisão do auditor, nunca calculados automaticamente pelo
+   sistema): "Pendente" / "Em validação" / "Pronto para Biblioteca". Quem decide
+   o valor é sempre o auditor, na tela do próprio Case — a Central nunca infere
+   ou avança esse status sozinha como efeito colateral de outra ação.
    ============================================================ */
 
 /**
- * Status do Case, para exibição. Registros sem valor gravado (histórico anterior
- * à criação do campo, ou iniciativas que nunca entraram na esteira de Case) são
- * tratados como "Pendente" só na exibição — nunca gravamos isso de volta sozinhos.
+ * Status do Case, para exibição/normalização. Registros sem valor gravado
+ * (histórico anterior à criação do campo, ou iniciativas que nunca entraram na
+ * esteira de Case) são tratados como "Pendente" só na exibição — nunca
+ * sobrescrevemos um valor já existente ("Em validação"/"Pronto para Biblioteca")
+ * de volta para "Pendente" só porque a tela foi reaberta.
  */
 function statusCaseOf(item){
   return (item && item.status_case) ? item.status_case : 'Pendente';
 }
 
 /**
- * Calcula o StatusCase a enviar quando a Curadoria é concluída (handleSave, modo
- * "validar"). O front-end decide o valor de forma explícita — nunca uma condição
- * dentro do Power Automate — e é sempre idempotente: nunca faz uma iniciativa comum
- * de curadoria voltar um Case que já está "Em revisão" ou "Pronto para Biblioteca"
- * para trás.
+ * Ao concluir a Curadoria da iniciativa (handleSave, modo "validar"), o StatusCase
+ * NÃO é mais decidido automaticamente aqui — quem decide o resultado da revisão do
+ * Case é sempre o auditor, na tela do próprio Case (ver cbStatusCase/cdStatusCase).
+ * Esta função só preserva o valor atual (ou "Pendente" se ainda não existir),
+ * garantindo que o campo sempre seja reenviado com um valor válido.
  */
-function calcularStatusCaseAoValidar(item, potencialEscolhido){
-  const atual = item.status_case || '';
-  if(atual === 'Em revisão' || atual === 'Pronto para Biblioteca') return atual;
-  if(classificarModelo(item) === 'legado' && potencialEscolhido === 'alto'){
-    return atual || 'Pendente';
-  }
-  if(classificarModelo(item) === 'novo' && temCaseEstruturado(item)){
-    return 'Em revisão';
-  }
-  return atual;
-}
-
-/**
- * Calcula o StatusCase a enviar quando o Case Manual é salvo (handleSaveCase).
- * Idempotente: nunca sobrescreve "Pronto para Biblioteca" (ação que ainda não existe
- * nesta entrega — este guard já deixa o código pronto para quando ela existir).
- */
-function calcularStatusCaseAoSalvarCase(item){
-  return item.status_case === 'Pronto para Biblioteca' ? item.status_case : 'Em revisão';
+function calcularStatusCaseAoValidar(item){
+  return statusCaseOf(item);
 }
 
 /**
@@ -2483,25 +2484,34 @@ function renderFranquiaPorRegional(containerId, porFranquiaPorRegional){
    ============================================================ */
 
 function startReview(){
-  AppState.currentQueue = null; // força reconstruir a fila (mesmo se já existir uma montada)
   AppState.viewingAdHoc = false; // garante que não fica preso num item avulso anterior
-  goToPage('revisao');
+  goToPage('revisao'); // goToPage já recalcula a fila do zero (primeira pendente)
 }
 
 /**
- * Monta a fila de revisão a partir do histórico local desta sessão (rascunhos que o
- * próprio revisor já começou). O carregamento de dados traz TODAS as iniciativas (não
- * só as pendentes) — o filtro "próxima pendente" é aplicado aqui, no navegador, com
- * base no Status real de cada item. Por isso, uma iniciativa validada por QUALQUER
- * pessoa deixa de entrar na fila assim que a página é recarregada — não existe risco
- * de duas pessoas curando a mesma iniciativa em paralelo depois de um recarregamento.
+ * Fonte única de verdade para "quais iniciativas estão pendentes de curadoria" — usa a
+ * MESMA base e o MESMO cálculo de status (statusOf) que Consultar Iniciativas usa para
+ * exibir o status de cada card. Não existe uma segunda lógica de fila: Fila de Revisão
+ * e Consultar Iniciativas sempre concordam sobre o que é "Pendente", porque usam
+ * exatamente a mesma função. Determinístico:
+ *   RAW_DATA normalizado → mesma base/ordenação de Consultar Iniciativas
+ *   → filtrar Status = Pendente → primeira posição = próxima a abrir.
+ */
+function getIniciativasPendentes(){
+  return RAW_DATA
+    .filter(d => (d.status || '') !== 'Sem Iniciativa')
+    .filter(d => statusOf(d.id) === 'Pendente');
+}
+
+/**
+ * Monta a Fila de Revisão e abre automaticamente a primeira iniciativa Pendente.
+ * Recalculada do zero toda vez que é chamada (getIniciativasPendentes()) — nunca
+ * depende de uma fila montada anteriormente, de índice guardado, de clique anterior em
+ * Consultar Iniciativas, nem de qualquer outro estado deixado por outra tela.
  */
 async function buildQueueAndRender(){
   document.getElementById('reviewTopbar').innerHTML = '';
-  const validations = ValidationRepository.getAllValidations();
-  const queue = ValidationService.applyQueueStrategy(RAW_DATA, validations, 'proxima_pendente');
-  AppState.currentQueue = queue;
-  AppState.currentIndex = 0;
+  AppState.currentQueue = getIniciativasPendentes();
   if(AppState.currentQueue.length) renderReviewCard(); else renderReviewEmpty();
 }
 
@@ -2509,15 +2519,17 @@ function renderReviewEmpty(){
   document.getElementById('reviewTopbar').innerHTML = '';
   document.getElementById('reviewShell').innerHTML = `
     <div class="card" style="padding:50px 30px;text-align:center;">
-      <div style="color:var(--t);margin-bottom:14px;">${ic('trophy')}</div>
-      <h3 style="color:var(--pd);margin-bottom:8px;">Nenhuma iniciativa pendente</h3>
-      <p style="color:var(--gm);font-size:13px;">Todas as iniciativas já foram curadas — por você ou por outra pessoa da equipe.</p>
+      <div style="font-size:2rem;margin-bottom:14px;">🎉</div>
+      <h3 style="color:var(--pd);margin-bottom:8px;">Fila de revisão concluída</h3>
+      <p style="color:var(--gm);font-size:13px;">Não há iniciativas pendentes para revisão neste momento.</p>
     </div>`;
 }
 
+/** Item atual da Fila: sempre currentQueue[0] (a primeira pendente) — não existe mais
+ * navegação por índice. Item avulso (Consultar Iniciativas) continua em estado separado. */
 function currentItem(){
   if(AppState.viewingAdHoc) return AppState.adHocItem;
-  return AppState.currentQueue[AppState.currentIndex];
+  return AppState.currentQueue ? AppState.currentQueue[0] : undefined;
 }
 
 /**
@@ -2738,9 +2750,7 @@ function renderReviewCardUnsafe(){
         </div>
       </div>
       <div class="review-actions">
-        <div class="ra-left">
-          <button class="btn btn-ghost btn-sm" id="btnAnterior" ${(AppState.viewingAdHoc||AppState.currentIndex===0)?'disabled':''}>${ic('menu')} Anterior</button>
-        </div>
+        <div class="ra-left"></div>
         <div class="ra-right">
           <button class="btn btn-ghost btn-sm" id="btnSalvarRascunho">Salvar</button>
           <button class="btn btn-primary btn-sm" id="btnValidar">${ic('trophy')} Concluir Curadoria</button>
@@ -2795,9 +2805,6 @@ function renderReviewCardUnsafe(){
     });
   });
 
-  document.getElementById('btnAnterior').addEventListener('click', ()=>{
-    if(AppState.currentIndex>0){ AppState.currentIndex--; renderReviewCard(); }
-  });
   document.getElementById('btnSalvarRascunho').addEventListener('click', ()=> handleSave('draft'));
   document.getElementById('btnValidar').addEventListener('click', ()=> handleSave('validar'));
 }
@@ -2829,11 +2836,11 @@ function renderReviewCard(){
     return;
   }
 
-  const limite = AppState.currentQueue ? AppState.currentQueue.length : 0;
-  let tentativas = 0;
-  while (tentativas <= limite){
-    const item = currentItem();
-    if(!item){ renderReviewEmpty(); return; }
+  // Sempre tenta renderizar currentQueue[0] ("a primeira pendente"). Se falhar, remove
+  // só esse registro da fila local (nunca do RAW_DATA) e tenta o novo primeiro — assim,
+  // sem depender de nenhum índice, até a fila esvaziar ou uma renderização funcionar.
+  while (AppState.currentQueue && AppState.currentQueue.length){
+    const item = AppState.currentQueue[0];
     try {
       renderReviewCardUnsafe();
       return; // renderizou com sucesso
@@ -2842,16 +2849,10 @@ function renderReviewCard(){
         id: item && item.id, projeto: item && item.nome,
         funcao: 'renderReviewCardUnsafe', erro: err, registroCompleto: item,
       });
-      tentativas++;
-      AppState.currentIndex++;
-      if(!AppState.currentQueue || AppState.currentIndex >= AppState.currentQueue.length){
-        renderReviewEmpty();
-        return;
-      }
-      // continua o laço — tenta renderizar a próxima iniciativa da fila
+      AppState.currentQueue = AppState.currentQueue.slice(1); // tenta a próxima
     }
   }
-  renderReviewEmpty(); // toda a fila restante falhou — não trava, mostra a tela vazia
+  renderReviewEmpty(); // fila vazia (ou toda ela falhou) — não trava, mostra a tela vazia
 }
 
 function bindRadioGroup(containerId, onChange){
@@ -2901,9 +2902,10 @@ async function handleSave(mode){
     const btnValidar = document.getElementById('btnValidar');
     btnValidar.disabled = true;
     btnValidar.textContent = 'Salvando…';
-    // StatusCase: decidido aqui no front-end (nunca por condição dentro do Power
-    // Automate), de forma idempotente — ver calcularStatusCaseAoValidar().
-    const novoStatusCase = calcularStatusCaseAoValidar(item, draft.potencial);
+    // StatusCase: não é mais decidido aqui — só preserva o valor atual (o auditor
+    // decide o resultado da revisão do Case na tela do próprio Case). Ver
+    // calcularStatusCaseAoValidar().
+    const novoStatusCase = calcularStatusCaseAoValidar(item);
     try {
       // Envia o JSON de curadoria para o backend, que grava na Lista "Iniciativas".
       // Os 12 campos de Case vêm do próprio "item" (valor atual, já persistido) —
@@ -2955,9 +2957,8 @@ async function handleSave(mode){
 
 /** Avança automaticamente para a próxima pendente — sem perguntar. */
 async function advanceToNext(){
-  AppState.currentQueue = null;
   AppState.viewingAdHoc = false; // se a validação partiu de um item avulso, volta para a fila real
-  await buildQueueAndRender();
+  await buildQueueAndRender(); // recalcula getIniciativasPendentes() do zero e abre a nova primeira
   window.scrollTo({top:0, behavior:'auto'});
 }
 
@@ -3105,25 +3106,41 @@ function matchesListaFilters(d){
    - StatusCase: NÃO existe ainda no backend — nenhum filtro por status é exibido
      (nada inventado/simulado); ver proposta técnica apresentada à Regi.
    ============================================================ */
-const CasesState = { modelo: 'todos', busca: '', expandLegado: false, expandEstruturado: false };
+const CasesState = { modelo: 'todos', statusCase: 'todos', busca: '', expandLegado: false, expandEstruturado: false };
 const CASES_PAGE_SIZE = 8;
 
 function buildCasesFilterPanel(){
   const panel = document.getElementById('casesFilterPanel');
   if(!panel) return;
-  const opcoes = [
+  const opcoesModelo = [
     ['todos', 'Todos'],
     ['legado', 'Cases Manuais — Legado'],
     ['estruturado', 'Cases Estruturados pelo Portal'],
+  ];
+  const opcoesStatusCase = [
+    ['todos', 'Todos'],
+    ['Pendente', 'Pendente'],
+    ['Em validação', 'Em validação'],
+    ['Pronto para Biblioteca', 'Pronto para Biblioteca'],
   ];
   panel.innerHTML = `
     <button type="button" class="btn btn-ghost btn-sm" id="btnLimparFiltrosCases" style="width:100%;margin-bottom:10px;">${ic('x')} Limpar filtros</button>
     <details class="filter-group" open>
       <summary>Modelo de Case</summary>
       <div>
-        ${opcoes.map(([v,l])=>`
+        ${opcoesModelo.map(([v,l])=>`
           <label class="filter-opt">
             <input type="radio" name="casesModelo" value="${v}" ${CasesState.modelo===v?'checked':''}>
+            <span>${esc(l)}</span>
+          </label>`).join('')}
+      </div>
+    </details>
+    <details class="filter-group" open>
+      <summary>Status da validação</summary>
+      <div>
+        ${opcoesStatusCase.map(([v,l])=>`
+          <label class="filter-opt">
+            <input type="radio" name="casesStatusCase" value="${esc(v)}" ${CasesState.statusCase===v?'checked':''}>
             <span>${esc(l)}</span>
           </label>`).join('')}
       </div>
@@ -3135,8 +3152,15 @@ function buildCasesFilterPanel(){
       renderCases();
     });
   });
+  panel.querySelectorAll('input[name="casesStatusCase"]').forEach(input=>{
+    input.addEventListener('change', ()=>{
+      CasesState.statusCase = input.value;
+      renderCases();
+    });
+  });
   document.getElementById('btnLimparFiltrosCases').addEventListener('click', ()=>{
     CasesState.modelo = 'todos';
+    CasesState.statusCase = 'todos';
     CasesState.busca = '';
     const searchInput = document.getElementById('casesSearch');
     if(searchInput) searchInput.value = '';
@@ -3149,6 +3173,18 @@ function matchesCasesSearch(item){
   if(!CasesState.busca) return true;
   const hay = [item.nome, item.franquia, item.regional].join(' ').toLowerCase();
   return hay.includes(CasesState.busca);
+}
+
+/** Filtro combinado (AND) com "Modelo de Case" — aplicado sobre o StatusCase real do item. */
+function matchesCasesStatusCase(item){
+  return CasesState.statusCase === 'todos' || statusCaseOf(item) === CasesState.statusCase;
+}
+
+/** Badge visual do StatusCase — deliberadamente separado do status-pill (Status geral
+ * da iniciativa) e dos badges de Modelo/Potencial, para não misturar os conceitos. */
+function statusCaseBadgeHtml(item){
+  const valor = statusCaseOf(item);
+  return `<span class="case-status-badge ${slug(valor)}"><span class="dot"></span>${esc(valor)}</span>`;
 }
 
 function caseCardHtml(item, tipo){
@@ -3177,7 +3213,7 @@ function caseCardHtml(item, tipo){
   return `
     <div class="card cat-card hoverable">
       <div class="top-row"><h4>${esc(item.nome)}</h4><span class="status-pill ${slug(statusOf(item.id))}">${esc(statusOf(item.id))}</span></div>
-      <div class="badgerow">${modeloBadgeHtml(item)}</div>
+      <div class="badgerow">${modeloBadgeHtml(item)}${statusCaseBadgeHtml(item)}</div>
       <div class="meta"><b>Franquia:</b> ${esc(item.franquia)}</div>
       <div class="meta"><b>Regional:</b> ${esc(item.regional)}</div>
       <div class="meta"><b>Data de cadastro:</b> ${dataCadastroDisplay(item)}</div>
@@ -3236,8 +3272,8 @@ function renderCases(){
   if(searchInput) searchInput.value = CasesState.busca;
 
   const dadosCuradoria = RAW_DATA.filter(d => (d.status || '') !== 'Sem Iniciativa').filter(matchesCasesSearch);
-  const legadoList = dadosCuradoria.filter(elegivelCaseManual);
-  const novoList = dadosCuradoria.filter(elegivelCaseEstruturado);
+  const legadoList = dadosCuradoria.filter(elegivelCaseManual).filter(matchesCasesStatusCase);
+  const novoList = dadosCuradoria.filter(elegivelCaseEstruturado).filter(matchesCasesStatusCase);
 
   const secLegado = document.getElementById('casesLegadoSection');
   const secNovo = document.getElementById('casesNovoSection');
@@ -3309,6 +3345,7 @@ function renderDetalheCase(item){
       <span>${esc(item.franquia)}</span><span>·</span><span>${esc(item.regional)}</span><span>·</span>
       <span class="status-pill ${slug(statusOf(item.id))}">${esc(statusOf(item.id))}</span>
       ${modeloBadgeHtml(item)}
+      ${statusCaseBadgeHtml(item)}
     </div>
   `;
 
@@ -3398,7 +3435,85 @@ function renderDetalheCase(item){
       `}
     </div>`;
 
-  document.getElementById('caseDetailBody').innerHTML = bloco1 + bloco2 + bloco3 + bloco4 + bloco5;
+  // Bloco 6 — decisão do auditor sobre o StatusCase. Só existe se já houver Case
+  // preenchido para avaliar (Legado já construído ou Novo Modelo estruturado).
+  const statusCaseAtual = statusCaseOf(item);
+  const opcoesStatusCase = [
+    ['Pendente', 'Pendente'],
+    ['Em validação', 'Em validação'],
+    ['Pronto para Biblioteca', 'Pronto para Biblioteca'],
+  ];
+  const bloco6 = temCase ? `
+    <div class="block1-wrap" style="margin-top:18px;">
+      <div class="block-title block1-title">${ic('target')} Avaliação do Case</div>
+      <div id="cdAvaliacaoMsg"></div>
+      <div class="review-block" style="margin-bottom:0;padding-bottom:0;border-bottom:none;">
+        <div class="rb-label">Status da validação do Case <span class="req-star">*</span><span class="rb-hint">decisão do auditor sobre o resultado desta revisão</span></div>
+        <div class="radio-pill-row" id="cdStatusCase">
+          ${opcoesStatusCase.map(([val,label])=>`<button type="button" class="radio-pill ${statusCaseAtual===val?'on':''}" data-val="${esc(val)}">${esc(label)}</button>`).join('')}
+        </div>
+      </div>
+      <div style="margin-top:16px;">
+        <button type="button" class="btn btn-primary btn-sm" id="btnSalvarAvaliacaoCase">${ic('trophy')} Salvar avaliação</button>
+      </div>
+    </div>` : '';
+
+  document.getElementById('caseDetailBody').innerHTML = bloco1 + bloco2 + bloco3 + bloco4 + bloco5 + bloco6;
+
+  if(temCase){
+    bindRadioGroup('cdStatusCase', ()=>{});
+    const btnAvaliacao = document.getElementById('btnSalvarAvaliacaoCase');
+    if(btnAvaliacao) btnAvaliacao.addEventListener('click', ()=> handleSalvarAvaliacaoCase(item));
+  }
+}
+
+/**
+ * Salva só a decisão do auditor sobre o StatusCase, a partir do modal "Ver Case"
+ * (Legado já construído ou Novo Modelo estruturado pelo Portal). Reenvia os campos
+ * de curadoria e os 12 campos de Case com o valor JÁ GRAVADO (mesmo padrão de
+ * handleSave/handleSaveCase) — só o status_case muda de verdade nesta chamada.
+ */
+async function handleSalvarAvaliacaoCase(item){
+  const novoStatusCase = lerStatusCaseSelecionado('cdStatusCase');
+  const msgBox = document.getElementById('cdAvaliacaoMsg');
+  const btn = document.getElementById('btnSalvarAvaliacaoCase');
+  if(msgBox) msgBox.innerHTML = '';
+  if(btn){ btn.disabled = true; btn.textContent = 'Salvando…'; }
+  try {
+    await ApiService.salvarCuradoria({
+      id: item.id,
+      categoria: categoriaOficialCuradoria(item),
+      potencial: potencialCuradoria(item),
+      nota: notaCuradoria(item),
+      parecer: parecerCuradoria(item),
+      revisor: revisorCuradoria(item),
+      status_case: novoStatusCase,
+      case_situacao_motivo: item.case_situacao_motivo,
+      case_situacao_impacto: item.case_situacao_impacto,
+      case_requer_investimento: item.case_requer_investimento,
+      case_investimentos_desc: item.case_investimentos_desc,
+      case_como_implementado: item.case_como_implementado,
+      case_ferramentas_utilizadas: item.case_ferramentas_utilizadas,
+      case_areas_envolvidas: item.case_areas_envolvidas,
+      case_beneficios_obtidos: item.case_beneficios_obtidos,
+      case_resultados_mensuraveis: item.case_resultados_mensuraveis,
+      case_cuidados_recomendados: item.case_cuidados_recomendados,
+      case_pre_requisito: item.case_pre_requisito,
+      case_materiais_apoio: item.case_materiais_apoio,
+    });
+  } catch (err) {
+    console.error('[handleSalvarAvaliacaoCase] Falha ao enviar avaliação:', err);
+    if(msgBox) msgBox.innerHTML = `
+      <div class="validation-banner">
+        <div class="vb-title">${ic('question')} Não foi possível salvar a avaliação</div>
+        <ul><li>Nada foi registrado ainda. Verifique sua conexão e tente novamente.</li></ul>
+      </div>`;
+    if(btn){ btn.disabled = false; btn.innerHTML = ic('trophy') + ' Salvar avaliação'; }
+    return;
+  }
+  item.status_case = novoStatusCase;
+  fecharDetalheCase();
+  abrirModalSucessoCase(item.id);
 }
 
 document.getElementById('caseDetailCloseBtn').addEventListener('click', fecharDetalheCase);
@@ -3446,9 +3561,10 @@ function badgeHtml(text, cls){ return `<span class="badge ${cls}">${esc(text)}</
 
 /**
  * Abre uma única iniciativa para revisão avulsa a partir de Consultar Iniciativas.
- * Correção do bug conhecido: isto NÃO mexe mais em AppState.currentQueue/currentIndex
- * (a fila real da Fila de Revisão) — usa um estado separado (viewingAdHoc/adHocItem),
- * para que voltar à Fila de Revisão pelo menu sempre mostre a fila de verdade.
+ * Correção do bug conhecido: isto NÃO mexe mais em AppState.currentQueue (a fila real
+ * da Fila de Revisão) — usa um estado separado (viewingAdHoc/adHocItem), para que
+ * voltar à Fila de Revisão pelo menu sempre mostre a fila de verdade (a primeira
+ * iniciativa Pendente, via getIniciativasPendentes()).
  */
 function openSingleReview(id){
   const item = RAW_DATA.find(d=>d.id===id);
@@ -3536,6 +3652,12 @@ function renderCaseBuilder(){
   // se o Case já tiver algum conteúdo (ex.: reabrir para revisar/editar).
   const v = (campo) => item[campo] ? esc(item[campo]) : '';
   const requerInv = item.case_requer_investimento || '';
+  const statusCaseAtual = statusCaseOf(item);
+  const opcoesStatusCase = [
+    ['Pendente', 'Pendente'],
+    ['Em validação', 'Em validação'],
+    ['Pronto para Biblioteca', 'Pronto para Biblioteca'],
+  ];
 
   shell.innerHTML = `
     <div class="review-card">
@@ -3543,7 +3665,7 @@ function renderCaseBuilder(){
         <div class="rc-eyebrow">Construção do Case · Legado</div>
         <h2>${esc(item.nome)}</h2>
         <div class="rc-meta">
-          <span>${esc(item.franquia)}</span><span>·</span><span>${esc(item.regional)}</span><span>·</span>${modeloBadgeHtml(item)}
+          <span>${esc(item.franquia)}</span><span>·</span><span>${esc(item.regional)}</span><span>·</span>${modeloBadgeHtml(item)}${statusCaseBadgeHtml(item)}
         </div>
       </div>
       <div class="review-card-body">
@@ -3637,6 +3759,14 @@ function renderCaseBuilder(){
             <textarea class="obs-field" id="cbMateriaisApoio" placeholder="Cole links de materiais de apoio (Drive, links externos, etc.)...">${v('case_materiais_apoio')}</textarea>
           </div>
 
+          <div class="ro-group-title">Avaliação do Case</div>
+          <div class="review-block" style="margin-bottom:0;padding-bottom:0;border-bottom:none;">
+            <div class="rb-label">Status da validação do Case <span class="req-star">*</span><span class="rb-hint">decisão do auditor sobre o resultado desta revisão</span></div>
+            <div class="radio-pill-row" id="cbStatusCase">
+              ${opcoesStatusCase.map(([val,label])=>`<button type="button" class="radio-pill ${statusCaseAtual===val?'on':''}" data-val="${esc(val)}">${esc(label)}</button>`).join('')}
+            </div>
+          </div>
+
         </div>
       </div>
       <div class="review-actions">
@@ -3654,6 +3784,7 @@ function renderCaseBuilder(){
     const wrap = document.getElementById('cbInvestimentosWrap');
     if(wrap) wrap.style.display = v === 'Sim' ? '' : 'none';
   });
+  bindRadioGroup('cbStatusCase', ()=>{});
 
   initCaseCharCounters();
 
@@ -3701,6 +3832,17 @@ function initCaseCharCounters(){
     atualizarContadorCaracteres(textareaId, contadorId, minimo);
     textarea.addEventListener('input', ()=> atualizarContadorCaracteres(textareaId, contadorId, minimo));
   });
+}
+
+/**
+ * Lê a opção marcada num grupo radio-pill de "Status da validação do Case"
+ * (cbStatusCase na Construção do Case, cdStatusCase no modal "Ver Case"). Sempre
+ * existe uma opção marcada (o próprio render já pré-seleciona o valor atual via
+ * statusCaseOf()), mas o fallback "Pendente" cobre qualquer estado inesperado do DOM.
+ */
+function lerStatusCaseSelecionado(containerId){
+  const el = document.querySelector(`#${containerId} .radio-pill.on`);
+  return el ? el.dataset.val : 'Pendente';
 }
 
 /** Lê os 12 campos do formulário de Construção do Case a partir do DOM. */
@@ -3758,9 +3900,9 @@ async function handleSaveCase(){
   const labelOriginal = btn.innerHTML;
   btn.disabled = true;
   btn.textContent = 'Salvando…';
-  // StatusCase: decidido aqui no front-end (nunca por condição dentro do Power
-  // Automate), de forma idempotente — ver calcularStatusCaseAoSalvarCase().
-  const novoStatusCase = calcularStatusCaseAoSalvarCase(item);
+  // StatusCase: quem decide agora é o auditor, explicitamente, no seletor
+  // "Status da validação do Case" desta tela — não é mais calculado sozinho.
+  const novoStatusCase = lerStatusCaseSelecionado('cbStatusCase');
   try {
     await ApiService.salvarCuradoria({
       id: item.id,
@@ -3811,22 +3953,31 @@ function fecharModalSucessoCase(){
 }
 
 /**
- * Botão "Próximo Case" do modal de sucesso — vai para a próxima iniciativa Legado
- * ainda sem Case construído (mesma regra de elegibilidade da aba Cases), excluindo a
- * que acabou de ser salva. Se não houver mais nenhuma, volta para a aba Cases.
+ * Encontra o próximo Case com StatusCase = "Pendente" — mesma regra de elegibilidade
+ * da aba Cases (Legado ou Novo Modelo), excluindo o que acabou de ser salvo. É o
+ * mesmo universo de Cases que o filtro "Status da validação: Pendente" da aba Cases
+ * mostra — não existe uma segunda lógica de "próximo" separada.
+ */
+function encontrarProximoCasePendente(excluirId){
+  const base = RAW_DATA.filter(d => (d.status || '') !== 'Sem Iniciativa').filter(d => d.id !== excluirId);
+  return base.find(d => (elegivelCaseManual(d) || elegivelCaseEstruturado(d)) && statusCaseOf(d) === 'Pendente');
+}
+
+/**
+ * Botão "Próximo Case" do modal de sucesso — vai para o próximo Case com StatusCase
+ * "Pendente" (Legado abre a Construção do Case; Novo Modelo abre o "Ver Case", onde
+ * a avaliação também pode ser feita). Se não houver mais nenhum, volta para Cases.
  */
 function irParaProximoCase(){
   const overlay = document.getElementById('caseSuccessOverlay');
   const idSalvo = overlay ? Number(overlay.dataset.idSalvo) : null;
   fecharModalSucessoCase();
-  const proximo = RAW_DATA
-    .filter(d => (d.status || '') !== 'Sem Iniciativa')
-    .filter(d => d.id !== idSalvo)
-    .find(d => elegivelCaseManual(d) && !temCaseEstruturado(d));
+  const proximo = encontrarProximoCasePendente(idSalvo);
   if(proximo){
-    abrirConstrucaoCase(proximo.id);
+    if(elegivelCaseManual(proximo)) abrirConstrucaoCase(proximo.id);
+    else abrirDetalheCase(proximo.id);
   } else {
-    showToast('Não há mais nenhum Case pendente de construção no momento.');
+    showToast('Não há mais nenhum Case pendente de avaliação no momento.');
     goToPage('cases'); // já chama renderCases() internamente
   }
 }
