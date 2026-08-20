@@ -456,6 +456,18 @@ textarea.obs-field:focus, .edit-select:focus{outline:none;border-color:var(--t);
 .confirm-modal p{font-size:.88rem;color:var(--gd);line-height:1.55;margin-bottom:20px;}
 .confirm-modal .cm-actions{display:flex;gap:10px;justify-content:center;}
 
+/* Modal "Ver Case" — detalhe completo, aberto sobre a página Cases sem navegar */
+.case-detail-overlay{z-index:400;display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;overflow-y:auto;}
+.case-detail-modal{background:#fff;border-radius:var(--rxl);box-shadow:var(--sh2);max-width:920px;width:100%;margin:auto;max-height:calc(100vh - 64px);display:flex;flex-direction:column;overflow:hidden;}
+.case-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:22px 26px;border-bottom:1.5px solid var(--gl);flex-shrink:0;}
+.case-detail-close{background:var(--bg);border:1.5px solid var(--gl);border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--gd);flex-shrink:0;}
+.case-detail-close:hover{background:var(--tp);color:var(--pd);}
+.case-detail-close svg{width:16px;height:16px;}
+.case-detail-body{padding:22px 26px 30px;overflow-y:auto;}
+.cd-eyebrow{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--t);margin-bottom:4px;}
+.cd-title{font-size:1.15rem;color:var(--pd);font-weight:800;margin-bottom:8px;}
+.cd-meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12.5px;color:var(--gm);}
+
 /* Fila: seletor de estratégia */
 .strategy-picker{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;}
 .strategy-opt{padding:8px 16px;border-radius:50px;border:1.5px solid var(--gl);background:#fff;font-size:12.5px;font-weight:700;color:var(--gd);cursor:pointer;}
@@ -716,23 +728,40 @@ textarea.obs-field:focus, .edit-select:focus{outline:none;border-color:var(--t);
 
         <div class="card" style="padding:14px 18px;margin-bottom:20px;background:var(--bg);border:1px dashed var(--gl);">
           <div style="font-size:12.5px;color:var(--gm);line-height:1.6;">
-            <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg> Ainda não existe um campo de decisão específica do Case (Elegível/Status/Responsável do Case) — isso é uma etapa futura.
+            <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg> Ainda não existe um campo de decisão específica do Case (StatusCase) — proposta em avaliação com a Regi.
             Por isso a lista abaixo é uma <b>fila de trabalho</b>, não uma lista de "aprovados": Legado só entra depois de validado pela
             Curadoria com potencial Alto; Novo Modelo só entra depois que o Case, preenchido pela franquia no Portal, também for validado pela Curadoria — enquanto não for validado, continua na Fila de Revisão.
           </div>
         </div>
 
-        <div class="sh" style="margin-bottom:10px;">
-          <h3 style="color:var(--pd);display:flex;align-items:center;gap:8px;"><svg class="icon" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> Cases Manuais — Legado</h3>
-          <p style="font-size:12.5px;">Iniciativas cadastradas até 19/08/2026, classificadas pela Curadoria com alto potencial de replicação e que precisam ter o Case construído manualmente.</p>
-        </div>
-        <div class="cat-grid" id="casesLegadoView" style="margin-bottom:28px;"></div>
+        <div class="catalog-layout">
+          <aside class="filter-panel" id="casesFilterPanel"></aside>
+          <div>
+            <div class="catalog-toolbar">
+              <input type="search" id="casesSearch" placeholder="Buscar por nome, franquia..." style="flex:1;min-width:200px;padding:9px 14px;border-radius:50px;border:1.5px solid var(--gl);font-family:'DM Sans',sans-serif;font-size:13px;">
+            </div>
 
-        <div class="sh" style="margin-bottom:10px;">
-          <h3 style="color:var(--pd);display:flex;align-items:center;gap:8px;"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="1.5"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/></svg> Cases Estruturados pelo Portal</h3>
-          <p style="font-size:12.5px;">Iniciativas cadastradas a partir de 20/08/2026 que já possuem as informações de Case preenchidas pelo Portal e precisam apenas da avaliação da Curadoria.</p>
+            <div id="casesLegadoSection">
+              <div class="sh" style="margin-bottom:10px;">
+                <h3 style="color:var(--pd);display:flex;align-items:center;gap:8px;"><svg class="icon" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> Cases Manuais — Legado</h3>
+                <p style="font-size:12.5px;">Iniciativas cadastradas até 19/08/2026, classificadas pela Curadoria com alto potencial de replicação e que precisam ter o Case construído manualmente.</p>
+              </div>
+              <div id="casesLegadoCount" style="font-size:12.5px;color:var(--gm);margin-bottom:10px;"></div>
+              <div class="cat-grid" id="casesLegadoView"></div>
+              <div style="text-align:center;margin:16px 0 28px;"><button type="button" class="btn btn-ghost btn-sm" id="btnVerTodosLegado" style="display:none;"></button></div>
+            </div>
+
+            <div id="casesNovoSection">
+              <div class="sh" style="margin-bottom:10px;">
+                <h3 style="color:var(--pd);display:flex;align-items:center;gap:8px;"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="1.5"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/></svg> Cases Estruturados pelo Portal</h3>
+                <p style="font-size:12.5px;">Iniciativas cadastradas a partir de 20/08/2026 que já possuem as informações de Case preenchidas pelo Portal e precisam apenas da avaliação da Curadoria.</p>
+              </div>
+              <div id="casesNovoCount" style="font-size:12.5px;color:var(--gm);margin-bottom:10px;"></div>
+              <div class="cat-grid" id="casesNovoView"></div>
+              <div style="text-align:center;margin:16px 0;"><button type="button" class="btn btn-ghost btn-sm" id="btnVerTodosNovo" style="display:none;"></button></div>
+            </div>
+          </div>
         </div>
-        <div class="cat-grid" id="casesNovoView"></div>
       </section>
 
       <!-- ===================== CONSTRUÇÃO DO CASE (Legado) — sub-etapa de Cases ===================== -->
@@ -783,6 +812,19 @@ textarea.obs-field:focus, .edit-select:focus{outline:none;border-color:var(--t);
         </div>
       </div>
     </footer>
+  </div>
+</div>
+
+<!-- ===================== MODAL "Ver Case" (detalhe completo) ===================== -->
+<!-- Etapa "correção Ver Case / reorganização Cases": aberto a partir de Cases (Legado
+     ou Novo Modelo) SEM navegar para outra página — mantém o contexto da lista. -->
+<div class="overlay case-detail-overlay" id="caseDetailOverlay">
+  <div class="case-detail-modal" id="caseDetailModal" role="dialog" aria-modal="true">
+    <div class="case-detail-head">
+      <div id="caseDetailHeadInfo"></div>
+      <button type="button" class="case-detail-close" id="caseDetailCloseBtn" aria-label="Fechar"><svg class="icon" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="case-detail-body" id="caseDetailBody"></div>
   </div>
 </div>
 
@@ -2925,51 +2967,318 @@ function matchesListaFilters(d){
  * Página "Cases" (Etapa 3.1) — duas esteiras, ambas derivadas de RAW_DATA + sessão de
  * validação local, recalculadas a cada visita à página. Nada aqui é gravado.
  */
+/* ============================================================
+   Etapa "correção Ver Case / reorganização Cases"
+   ============================================================
+   - Filtro "Modelo de Case" (Todos / Legado / Estruturado) + busca por texto.
+   - Cada esteira (Legado / Estruturado) expande de forma independente ("Ver todos").
+   - "Ver Case" abre um modal de detalhe (não navega mais para outra página).
+   - StatusCase: NÃO existe ainda no backend — nenhum filtro por status é exibido
+     (nada inventado/simulado); ver proposta técnica apresentada à Regi.
+   ============================================================ */
+const CasesState = { modelo: 'todos', busca: '', expandLegado: false, expandEstruturado: false };
+const CASES_PAGE_SIZE = 8;
+
+function buildCasesFilterPanel(){
+  const panel = document.getElementById('casesFilterPanel');
+  if(!panel) return;
+  const opcoes = [
+    ['todos', 'Todos'],
+    ['legado', 'Cases Manuais — Legado'],
+    ['estruturado', 'Cases Estruturados pelo Portal'],
+  ];
+  panel.innerHTML = `
+    <button type="button" class="btn btn-ghost btn-sm" id="btnLimparFiltrosCases" style="width:100%;margin-bottom:10px;">${ic('x')} Limpar filtros</button>
+    <details class="filter-group" open>
+      <summary>Modelo de Case</summary>
+      <div>
+        ${opcoes.map(([v,l])=>`
+          <label class="filter-opt">
+            <input type="radio" name="casesModelo" value="${v}" ${CasesState.modelo===v?'checked':''}>
+            <span>${esc(l)}</span>
+          </label>`).join('')}
+      </div>
+    </details>
+  `;
+  panel.querySelectorAll('input[name="casesModelo"]').forEach(input=>{
+    input.addEventListener('change', ()=>{
+      CasesState.modelo = input.value;
+      renderCases();
+    });
+  });
+  document.getElementById('btnLimparFiltrosCases').addEventListener('click', ()=>{
+    CasesState.modelo = 'todos';
+    CasesState.busca = '';
+    const searchInput = document.getElementById('casesSearch');
+    if(searchInput) searchInput.value = '';
+    buildCasesFilterPanel();
+    renderCases();
+  });
+}
+
+function matchesCasesSearch(item){
+  if(!CasesState.busca) return true;
+  const hay = [item.nome, item.franquia, item.regional].join(' ').toLowerCase();
+  return hay.includes(CasesState.busca);
+}
+
+function caseCardHtml(item, tipo){
+  // tipo: 'legado' | 'novo'
+  const temCase = temCaseEstruturado(item);
+  let botoes;
+  if(tipo === 'legado'){
+    botoes = temCase
+      ? `<button class="btn btn-ghost btn-sm" onclick="abrirDetalheCase(${item.id})">${ic('eye')} Ver Case</button>
+         <button class="btn btn-ghost btn-sm" onclick="abrirConstrucaoCase(${item.id})">${ic('wrench')} Editar Case</button>`
+      : `<button class="btn btn-ghost btn-sm" onclick="abrirConstrucaoCase(${item.id})">${ic('wrench')} Construir Case</button>`;
+  } else {
+    botoes = `<button class="btn btn-ghost btn-sm" onclick="abrirDetalheCase(${item.id})">${ic('eye')} Ver Case</button>`;
+  }
+  const linhaPotencial = tipo === 'legado'
+    ? `<div class="meta"><b>Potencial de Replicação (Curadoria):</b> ${esc(potencialCuradoriaLabel(item))}</div>`
+    : `<div class="meta"><b>Potencial informado pela franquia:</b> ${esc(item.potencial_replicacao_franquia)}</div>
+       <div class="meta"><b>Potencial definido pela Curadoria:</b> ${esc(potencialCuradoriaLabel(item))}</div>`;
+  const linhaResumo = tipo === 'novo'
+    ? `<div class="meta"><b>Resumo do Case:</b> ${resumoCurto(item.case_situacao_motivo, 140)}</div>`
+    : '';
+  const linhaRevisorData = tipo === 'legado'
+    ? `<div class="meta"><b>Revisor:</b> ${esc(item.revisor_curadoria)}</div>
+       <div class="meta"><b>Data da Curadoria:</b> ${dataCuradoriaDisplay(item)}</div>`
+    : '';
+  return `
+    <div class="card cat-card hoverable">
+      <div class="top-row"><h4>${esc(item.nome)}</h4><span class="status-pill ${slug(statusOf(item.id))}">${esc(statusOf(item.id))}</span></div>
+      <div class="badgerow">${modeloBadgeHtml(item)}</div>
+      <div class="meta"><b>Franquia:</b> ${esc(item.franquia)}</div>
+      <div class="meta"><b>Regional:</b> ${esc(item.regional)}</div>
+      <div class="meta"><b>Data de cadastro:</b> ${dataCadastroDisplay(item)}</div>
+      ${linhaPotencial}
+      ${linhaResumo}
+      <div class="meta"><b>Parecer da Curadoria:</b> ${resumoCurto(item.parecer_curadoria, 140)}</div>
+      ${linhaRevisorData}
+      <div class="foot-row">
+        <span></span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">${botoes}</div>
+      </div>
+    </div>`;
+}
+
+/** Renderiza uma esteira (Legado ou Estruturado) com paginação "Ver todos" independente. */
+function renderCasesSecao(lista, tipo, elId, countElId, btnId, expandido, onExpandir, msgVazio){
+  const el = document.getElementById(elId);
+  const countEl = document.getElementById(countElId);
+  const btn = document.getElementById(btnId);
+  if(!el) return;
+
+  if(!lista.length){
+    el.innerHTML = `<div class="empty-state">${ic('trophy')}${msgVazio}</div>`;
+    if(countEl) countEl.textContent = '';
+    if(btn) btn.style.display = 'none';
+    return;
+  }
+
+  const visiveis = expandido ? lista : lista.slice(0, CASES_PAGE_SIZE);
+  el.innerHTML = visiveis.map(item => caseCardHtml(item, tipo)).join('');
+
+  if(countEl) countEl.textContent = `Mostrando ${visiveis.length} de ${lista.length} iniciativa${lista.length>1?'s':''}`;
+
+  if(btn){
+    if(lista.length > CASES_PAGE_SIZE){
+      btn.style.display = '';
+      btn.textContent = expandido ? 'Mostrar menos' : `Ver todos (${lista.length})`;
+      btn.onclick = onExpandir;
+    } else {
+      btn.style.display = 'none';
+    }
+  }
+}
+
 function renderCases(){
-  const dadosCuradoria = RAW_DATA.filter(d => (d.status || '') !== 'Sem Iniciativa');
+  buildCasesFilterPanel();
+
+  const searchInput = document.getElementById('casesSearch');
+  if(searchInput && !searchInput.dataset.wired){
+    searchInput.dataset.wired = '1';
+    searchInput.addEventListener('input', (e)=>{
+      CasesState.busca = e.target.value.trim().toLowerCase();
+      renderCases();
+    });
+  }
+  if(searchInput) searchInput.value = CasesState.busca;
+
+  const dadosCuradoria = RAW_DATA.filter(d => (d.status || '') !== 'Sem Iniciativa').filter(matchesCasesSearch);
   const legadoList = dadosCuradoria.filter(elegivelCaseManual);
   const novoList = dadosCuradoria.filter(elegivelCaseEstruturado);
 
-  const legadoEl = document.getElementById('casesLegadoView');
-  if(legadoEl){
-    legadoEl.innerHTML = legadoList.length ? legadoList.map(item => `
-      <div class="card cat-card hoverable">
-        <div class="top-row"><h4>${esc(item.nome)}</h4><span class="status-pill ${slug(statusOf(item.id))}">${esc(statusOf(item.id))}</span></div>
-        <div class="badgerow">${modeloBadgeHtml(item)}</div>
-        <div class="meta"><b>Franquia:</b> ${esc(item.franquia)}</div>
-        <div class="meta"><b>Regional:</b> ${esc(item.regional)}</div>
-        <div class="meta"><b>Data de cadastro:</b> ${dataCadastroDisplay(item)}</div>
-        <div class="meta"><b>Potencial de Replicação (Curadoria):</b> ${esc(potencialCuradoriaLabel(item))}</div>
-        <div class="meta"><b>Parecer da Curadoria:</b> ${resumoCurto(item.parecer_curadoria, 140)}</div>
-        <div class="meta"><b>Revisor:</b> ${esc(item.revisor_curadoria)}</div>
-        <div class="meta"><b>Data da Curadoria:</b> ${dataCuradoriaDisplay(item)}</div>
-        <div class="foot-row">
-          <span></span>
-          <button class="btn btn-ghost btn-sm" onclick="abrirConstrucaoCase(${item.id})">${ic('wrench')} Construir Case</button>
-        </div>
-      </div>`).join('') : `<div class="empty-state">${ic('trophy')}Nenhuma iniciativa legado validada com potencial Alto aguardando Case manual no momento.</div>`;
-  }
+  const secLegado = document.getElementById('casesLegadoSection');
+  const secNovo = document.getElementById('casesNovoSection');
+  if(secLegado) secLegado.style.display = (CasesState.modelo === 'todos' || CasesState.modelo === 'legado') ? '' : 'none';
+  if(secNovo) secNovo.style.display = (CasesState.modelo === 'todos' || CasesState.modelo === 'estruturado') ? '' : 'none';
 
-  const novoEl = document.getElementById('casesNovoView');
-  if(novoEl){
-    novoEl.innerHTML = novoList.length ? novoList.map(item => `
-      <div class="card cat-card hoverable">
-        <div class="top-row"><h4>${esc(item.nome)}</h4><span class="status-pill ${slug(statusOf(item.id))}">${esc(statusOf(item.id))}</span></div>
-        <div class="badgerow">${modeloBadgeHtml(item)}</div>
-        <div class="meta"><b>Franquia:</b> ${esc(item.franquia)}</div>
-        <div class="meta"><b>Regional:</b> ${esc(item.regional)}</div>
-        <div class="meta"><b>Data de cadastro:</b> ${dataCadastroDisplay(item)}</div>
-        <div class="meta"><b>Potencial informado pela franquia:</b> ${esc(item.potencial_replicacao_franquia)}</div>
-        <div class="meta"><b>Potencial definido pela Curadoria:</b> ${esc(potencialCuradoriaLabel(item))}</div>
-        <div class="meta"><b>Resumo do Case:</b> ${resumoCurto(item.case_situacao_motivo, 140)}</div>
-        <div class="meta"><b>Parecer da Curadoria:</b> ${resumoCurto(item.parecer_curadoria, 140)}</div>
-        <div class="foot-row">
-          <span></span>
-          <button class="btn btn-ghost btn-sm" onclick="openSingleReview(${item.id})">${ic('eye')} Ver Case</button>
-        </div>
-      </div>`).join('') : `<div class="empty-state">${ic('trophy')}Nenhuma iniciativa do Novo Modelo com Case validada pela Curadoria no momento.</div>`;
-  }
+  renderCasesSecao(
+    legadoList, 'legado', 'casesLegadoView', 'casesLegadoCount', 'btnVerTodosLegado',
+    CasesState.expandLegado,
+    ()=>{ CasesState.expandLegado = !CasesState.expandLegado; renderCases(); },
+    'Nenhuma iniciativa legado validada com potencial Alto aguardando Case manual no momento.'
+  );
+  renderCasesSecao(
+    novoList, 'novo', 'casesNovoView', 'casesNovoCount', 'btnVerTodosNovo',
+    CasesState.expandEstruturado,
+    ()=>{ CasesState.expandEstruturado = !CasesState.expandEstruturado; renderCases(); },
+    'Nenhuma iniciativa do Novo Modelo com Case validada pela Curadoria no momento.'
+  );
 }
+
+/* ============================================================
+   Modal "Ver Case" — detalhe completo, sem navegar para outra página
+   ============================================================ */
+
+/** true se o valor deve ser tratado como ausente para exibição (cobre undefined,
+ * null, string vazia/só espaço, array vazio, e os literais "undefined"/"null"/
+ * "[object Object]" que eventualmente chegam como texto de uma fonte externa). */
+function valorAusente(v){
+  if(v === undefined || v === null) return true;
+  if(Array.isArray(v)) return v.length === 0;
+  const s = String(v).trim();
+  return s === '' || s === 'undefined' || s === 'null' || s === '[object Object]';
+}
+
+/** Linha curta "rótulo: valor" — OCULTA a linha inteira se o valor estiver ausente. */
+function linhaDetalhe(label, valor){
+  if(valorAusente(valor)) return '';
+  const texto = Array.isArray(valor) ? valor.join(', ') : String(valor);
+  return `<div class="ro-field"><div class="ro-k">${esc(label)}</div><div class="ro-v">${esc(texto)}</div></div>`;
+}
+
+/** Bloco de texto longo — mostra "Não informado." (não oculta) quando o valor está ausente. */
+function blocoDetalhe(label, valor){
+  if(valorAusente(valor)){
+    return `<div class="ro-full"><div class="ro-full-k">${esc(label)}</div><div class="ro-full-v" style="color:var(--gm);font-style:italic;">Não informado.</div></div>`;
+  }
+  return `<div class="ro-full"><div class="ro-full-k">${esc(label)}</div><div class="ro-full-v">${esc(String(valor))}</div></div>`;
+}
+
+function abrirDetalheCase(id){
+  const item = RAW_DATA.find(d => d.id === id);
+  if(!item) return;
+  renderDetalheCase(item);
+  document.getElementById('caseDetailOverlay').classList.add('open');
+}
+
+function fecharDetalheCase(){
+  document.getElementById('caseDetailOverlay').classList.remove('open');
+}
+
+function renderDetalheCase(item){
+  const tipo = classificarModelo(item);
+  const eyebrow = tipo === 'novo' ? 'CASE ESTRUTURADO PELO PORTAL' : 'CASE MANUAL — LEGADO';
+
+  document.getElementById('caseDetailHeadInfo').innerHTML = `
+    <div class="cd-eyebrow">${esc(eyebrow)}</div>
+    <div class="cd-title">${esc(item.nome)}</div>
+    <div class="cd-meta">
+      <span>${esc(item.franquia)}</span><span>·</span><span>${esc(item.regional)}</span><span>·</span>
+      <span class="status-pill ${slug(statusOf(item.id))}">${esc(statusOf(item.id))}</span>
+      ${modeloBadgeHtml(item)}
+    </div>
+  `;
+
+  const bloco1 = `
+    <div class="block1-wrap">
+      <div class="block-title block1-title">${ic('book')} Bloco 1 — Identificação</div>
+      <div class="block1-grid">
+        ${linhaDetalhe('Nome do Projeto', item.nome)}
+        ${linhaDetalhe('Franquia', item.franquia)}
+        ${linhaDetalhe('Regional', item.regional)}
+        ${linhaDetalhe('Estado', item.estado)}
+        ${linhaDetalhe('Cidade', item.cidade)}
+        ${linhaDetalhe('Tipo da Franquia', item.tipo_franquia)}
+        ${linhaDetalhe('Tempo de Operação', item.tempo_operacao)}
+        ${linhaDetalhe('Maturidade Digital', item.maturidade_digital)}
+        ${linhaDetalhe('Data de Cadastro', dataCadastroDisplay(item))}
+      </div>
+    </div>`;
+
+  const bloco2 = `
+    <div class="block1-wrap" style="margin-top:18px;">
+      <div class="block-title block1-title">${ic('clipboard')} Bloco 2 — Informações da Iniciativa</div>
+      <div class="block1-grid">
+        ${linhaDetalhe('Possui Iniciativa', item.possui_iniciativa)}
+        ${linhaDetalhe('Categoria', item.categoria_original)}
+        ${linhaDetalhe('Status Atual', item.status_atual)}
+        ${linhaDetalhe('Indicador Operacional', item.area_impactada)}
+        ${linhaDetalhe('Ferramentas (seleção)', item.ferramentas_chips)}
+        ${linhaDetalhe('Próximo Estágio', item.proximo_estagio)}
+        ${linhaDetalhe('Responsável', item.responsavel)}
+      </div>
+      ${blocoDetalhe('Objetivo', item.objetivo)}
+    </div>`;
+
+  const bloco3 = `
+    <div class="block1-wrap" style="margin-top:18px;">
+      <div class="block-title block1-title">${ic('target')} Bloco 3 — Potencial de Replicação</div>
+      <div class="block1-grid">
+        ${linhaDetalhe('Potencial informado pela franquia (autoavaliação)', item.potencial_replicacao_franquia)}
+        ${linhaDetalhe('Potencial definido pela Curadoria', potencialCuradoriaLabel(item))}
+      </div>
+    </div>`;
+
+  const bloco4 = `
+    <div class="block1-wrap" style="margin-top:18px;">
+      <div class="block-title block1-title">${ic('trophy')} Bloco 4 — Parecer da Curadoria</div>
+      <div class="block1-grid">
+        ${linhaDetalhe('Categoria Oficial', categoriaOficialCuradoria(item))}
+        ${linhaDetalhe('Potencial de Replicação (Curadoria)', potencialCuradoriaLabel(item))}
+        ${linhaDetalhe('Revisor', revisorCuradoria(item))}
+        ${linhaDetalhe('Data da Curadoria', dataCuradoriaDisplay(item))}
+        ${linhaDetalhe('Status Geral da Iniciativa', statusOf(item.id))}
+      </div>
+      ${blocoDetalhe('Parecer da Curadoria', parecerCuradoria(item))}
+    </div>`;
+
+  const temCase = temCaseEstruturado(item);
+  const bloco5 = `
+    <div class="block1-wrap" style="margin-top:18px;">
+      <div class="block-title block1-title">${ic('briefcase')} Bloco 5 — Case</div>
+      ${temCase ? `
+        <div class="ro-group-title">Situação</div>
+        ${blocoDetalhe('Situação / Motivo', item.case_situacao_motivo)}
+        ${blocoDetalhe('Situação / Impacto', item.case_situacao_impacto)}
+
+        <div class="ro-group-title">Implantação</div>
+        <div class="block1-grid">
+          ${linhaDetalhe('Requer investimento', item.case_requer_investimento)}
+        </div>
+        ${blocoDetalhe('Descrição dos investimentos', item.case_investimentos_desc)}
+        ${blocoDetalhe('Como foi implementado', item.case_como_implementado)}
+        <div class="block1-grid">
+          ${linhaDetalhe('Ferramentas utilizadas', item.case_ferramentas_utilizadas)}
+          ${linhaDetalhe('Áreas envolvidas', item.case_areas_envolvidas)}
+        </div>
+
+        <div class="ro-group-title">Resultados</div>
+        ${blocoDetalhe('Benefícios obtidos', item.case_beneficios_obtidos)}
+        ${linhaDetalhe('Resultados mensuráveis', item.case_resultados_mensuraveis)}
+
+        <div class="ro-group-title">Recomendações</div>
+        ${blocoDetalhe('Cuidados recomendados', item.case_cuidados_recomendados)}
+        ${blocoDetalhe('Pré-requisitos', item.case_pre_requisito)}
+        ${linhaDetalhe('Materiais de apoio', item.case_materiais_apoio)}
+      ` : `
+        <div class="ro-full"><div class="ro-full-v" style="color:var(--gm);font-style:italic;">Case ainda não construído/preenchido para esta iniciativa.</div></div>
+      `}
+    </div>`;
+
+  document.getElementById('caseDetailBody').innerHTML = bloco1 + bloco2 + bloco3 + bloco4 + bloco5;
+}
+
+document.getElementById('caseDetailCloseBtn').addEventListener('click', fecharDetalheCase);
+document.getElementById('caseDetailOverlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'caseDetailOverlay') fecharDetalheCase();
+});
+document.addEventListener('keydown', (e)=>{
+  if(e.key === 'Escape') fecharDetalheCase();
+});
 
 function renderListaResults(){
   const base = RAW_DATA.filter(d => (d.status || '') !== 'Sem Iniciativa');
@@ -2989,7 +3298,7 @@ function renderListaResults(){
       <div class="badgerow">
         ${modeloBadgeHtml(d)}
         ${badgeHtml(d.categoria_original || 'Sem categoria', CAT_COLOR[d.categoria_original||'Sem categoria']||'b-gray')}
-        ${badgeHtml(d.regional.replace('Regional ',''),'b-navy')}
+        ${badgeHtml((d.regional || 'Sem regional').replace('Regional ',''),'b-navy')}
       </div>
       <div class="meta"><b>Franquia:</b> ${esc(d.franquia)}</div>
       <div class="foot-row">
