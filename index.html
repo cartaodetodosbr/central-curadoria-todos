@@ -520,6 +520,8 @@ textarea.obs-field:focus, .edit-select:focus{outline:none;border-color:var(--t);
 
 .req-star{color:var(--red, #D64550);margin-left:3px;}
 .rb-hint{font-size:10.5px;color:var(--gm);font-weight:600;text-transform:none;letter-spacing:0;margin-left:8px;}
+.char-counter{font-size:11px;font-weight:600;margin-top:6px;color:var(--gm);}
+.char-counter.ok{color:#1E7A45;}
 
 /* seleção única em formato de pills (Benefício, Situação, Potencial, Status) */
 .radio-pill-row{display:flex;flex-wrap:wrap;gap:8px;}
@@ -602,7 +604,7 @@ textarea.obs-field:focus, .edit-select:focus{outline:none;border-color:var(--t);
 <div class="reviewer-gate" id="appLoadingScreen">
   <div class="rg-card">
     <h2>Carregando iniciativas…</h2>
-    <p>Buscando os dados mais recentes da planilha através do Power Automate. Isso leva só alguns segundos.</p>
+    <p>Buscando os dados mais recentes. Isso leva só alguns segundos.</p>
   </div>
 </div>
 
@@ -610,7 +612,7 @@ textarea.obs-field:focus, .edit-select:focus{outline:none;border-color:var(--t);
 <div class="reviewer-gate hidden" id="appErrorScreen">
   <div class="rg-card">
     <h2>Não foi possível carregar as iniciativas</h2>
-    <p id="appErrorMsg">Não conseguimos buscar os dados no Power Automate. Verifique sua conexão e se o fluxo está ativo.</p>
+    <p id="appErrorMsg">Não conseguimos carregar os dados agora. Verifique sua conexão e tente novamente.</p>
     <button class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:10px;" id="appRetryBtn">Tentar novamente</button>
     <button class="btn btn-ghost" style="width:100%;justify-content:center;font-size:11.5px;" id="appOfflineBtn">Continuar com dados de exemplo (não recomendado — não é a base real)</button>
   </div>
@@ -726,14 +728,6 @@ textarea.obs-field:focus, .edit-select:focus{outline:none;border-color:var(--t);
           <p>Iniciativas que já passaram pela Curadoria e seguem para a construção ou revisão do Case — Legado e Novo Modelo, cada uma na sua esteira.</p>
         </div>
 
-        <div class="card" style="padding:14px 18px;margin-bottom:20px;background:var(--bg);border:1px dashed var(--gl);">
-          <div style="font-size:12.5px;color:var(--gm);line-height:1.6;">
-            <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg> Ainda não existe um campo de decisão específica do Case (StatusCase) — proposta em avaliação com a Regi.
-            Por isso a lista abaixo é uma <b>fila de trabalho</b>, não uma lista de "aprovados": Legado só entra depois de validado pela
-            Curadoria com potencial Alto; Novo Modelo só entra depois que o Case, preenchido pela franquia no Portal, também for validado pela Curadoria — enquanto não for validado, continua na Fila de Revisão.
-          </div>
-        </div>
-
         <div class="catalog-layout">
           <aside class="filter-panel" id="casesFilterPanel"></aside>
           <div>
@@ -825,6 +819,19 @@ textarea.obs-field:focus, .edit-select:focus{outline:none;border-color:var(--t);
       <button type="button" class="case-detail-close" id="caseDetailCloseBtn" aria-label="Fechar"><svg class="icon" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="case-detail-body" id="caseDetailBody"></div>
+  </div>
+</div>
+
+<!-- ===================== MODAL "Case salvo com sucesso" ===================== -->
+<div class="overlay" id="caseSuccessOverlay">
+  <div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="caseSuccessTitle">
+    <div class="cm-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0V4z"/><path d="M8 5H5a3 3 0 0 0 3 4"/><path d="M16 5h3a3 3 0 0 1-3 4"/><path d="M12 13v4"/><path d="M9 21h6"/><path d="M10 17h4l.5 4h-5z"/></svg></div>
+    <h3 id="caseSuccessTitle">Case salvo com sucesso!</h3>
+    <p>As informações do Case foram registradas.</p>
+    <div class="cm-actions">
+      <button type="button" class="btn btn-ghost btn-sm" id="caseSuccessBackBtn">Voltar para Cases</button>
+      <button type="button" class="btn btn-primary btn-sm" id="caseSuccessNextBtn">Próximo Case</button>
+    </div>
   </div>
 </div>
 
@@ -1022,6 +1029,9 @@ const ApiService = (function () {
       nota_reconhecimento: Number(dados.nota),
       parecer_curadoria: dados.parecer,
       revisor: dados.revisor,
+      // StatusCase: decidido sempre pelo chamador (front-end), nunca aqui — ver
+      // calcularStatusCaseAoValidar / calcularStatusCaseAoSalvarCase.
+      status_case: dados.status_case || '',
       // ---- Etapa "ativar gravação real dos Cases Manuais" ----
       // Os 12 campos de Case são SEMPRE enviados, tanto ao salvar uma curadoria comum
       // quanto ao salvar um Case — nunca como "undefined". Cada chamador (handleSave,
@@ -2070,6 +2080,48 @@ function revisorCuradoria(item){
   return item.revisor_curadoria || '';
 }
 
+/* ============================================================
+   STATUSCASE — ciclo de vida do Case (Gate 4), independente do Status geral
+   da iniciativa/curadoria. Backend já grava e devolve StatusCase (Gates 2/3).
+   ============================================================ */
+
+/**
+ * Status do Case, para exibição. Registros sem valor gravado (histórico anterior
+ * à criação do campo, ou iniciativas que nunca entraram na esteira de Case) são
+ * tratados como "Pendente" só na exibição — nunca gravamos isso de volta sozinhos.
+ */
+function statusCaseOf(item){
+  return (item && item.status_case) ? item.status_case : 'Pendente';
+}
+
+/**
+ * Calcula o StatusCase a enviar quando a Curadoria é concluída (handleSave, modo
+ * "validar"). O front-end decide o valor de forma explícita — nunca uma condição
+ * dentro do Power Automate — e é sempre idempotente: nunca faz uma iniciativa comum
+ * de curadoria voltar um Case que já está "Em revisão" ou "Pronto para Biblioteca"
+ * para trás.
+ */
+function calcularStatusCaseAoValidar(item, potencialEscolhido){
+  const atual = item.status_case || '';
+  if(atual === 'Em revisão' || atual === 'Pronto para Biblioteca') return atual;
+  if(classificarModelo(item) === 'legado' && potencialEscolhido === 'alto'){
+    return atual || 'Pendente';
+  }
+  if(classificarModelo(item) === 'novo' && temCaseEstruturado(item)){
+    return 'Em revisão';
+  }
+  return atual;
+}
+
+/**
+ * Calcula o StatusCase a enviar quando o Case Manual é salvo (handleSaveCase).
+ * Idempotente: nunca sobrescreve "Pronto para Biblioteca" (ação que ainda não existe
+ * nesta entrega — este guard já deixa o código pronto para quando ela existir).
+ */
+function calcularStatusCaseAoSalvarCase(item){
+  return item.status_case === 'Pronto para Biblioteca' ? item.status_case : 'Em revisão';
+}
+
 /**
  * Legado, já validado pela Curadoria (statusOf === 'Validada'), com potencial ALTO
  * definido pela CURADORIA (não a autoavaliação da franquia) → entra na esteira de
@@ -2170,6 +2222,10 @@ function normalizeIniciativa(raw){
     nota_reconhecimento:  raw.nota_reconhecimento   ? Number(raw.nota_reconhecimento) : 0,
     parecer_curadoria:    raw.parecer_curadoria     || '',
     revisor_curadoria:    raw.revisor_curadoria     || '',
+    // Campo próprio do ciclo de vida do Case (independente do Status geral de
+    // curadoria). Registros antigos/ainda não tocados vêm null/undefined do
+    // SharePoint — normalizado para exibição como "Pendente" por statusCaseOf().
+    status_case: raw.status_case || null,
   });
 }
 
@@ -2184,7 +2240,7 @@ async function initApp(){
   try {
     const dados = await ApiService.buscarTodasIniciativas();
     if(!Array.isArray(dados) || dados.length === 0){
-      throw new Error('O Power Automate respondeu, mas não retornou nenhuma iniciativa.');
+      throw new Error('O sistema respondeu, mas não retornou nenhuma iniciativa.');
     }
     // "id" já vem como número da Lista do SharePoint, mas Number(...) aqui garante
     // isso mesmo se algum conector devolver como texto.
@@ -2206,8 +2262,8 @@ async function initApp(){
   } catch (err) {
     console.error('[initApp] Falha ao carregar iniciativas:', err);
     loading.classList.add('hidden');
-    errorMsg.textContent = 'Não conseguimos buscar os dados no Power Automate (' + err.message + '). '
-      + 'Verifique sua conexão e se o fluxo "Buscar Iniciativas" está ativo.';
+    errorMsg.textContent = 'Não conseguimos carregar os dados agora. Verifique sua conexão e tente novamente. '
+      + 'Se o problema continuar, avise a área responsável.';
     errorScreen.classList.remove('hidden');
   }
 }
@@ -2215,11 +2271,19 @@ async function initApp(){
 document.getElementById('appRetryBtn').addEventListener('click', initApp);
 document.getElementById('appOfflineBtn').addEventListener('click', ()=>{
   if(typeof MOCK_RAW_DATA_FALLBACK === 'undefined' || !MOCK_RAW_DATA_FALLBACK.length){
-    alert('Não há dados de exemplo disponíveis neste arquivo.');
+    showToast('Não há dados de exemplo disponíveis neste arquivo.');
     return;
   }
-  RAW_DATA = MOCK_RAW_DATA_FALLBACK;
-  RAW_DATA.forEach((item) => { item.id = Number(item.id); });
+  // Mesmo pipeline único de normalização usado em initApp() — nenhuma tela deve
+  // trabalhar com um formato de dado diferente dependendo de como os dados chegaram.
+  RAW_DATA = MOCK_RAW_DATA_FALLBACK.map((item) => {
+    const normalizado = normalizeIniciativa(item);
+    normalizado.id = Number(normalizado.id);
+    return normalizado;
+  });
+  const ultimoAcessoOffline = getUltimoAcesso();
+  marcarItensNovos(ultimoAcessoOffline);
+  marcarAcessoAgora();
   precomputeAreas();
   document.getElementById('appErrorScreen').classList.add('hidden');
   document.getElementById('reviewerGate').classList.remove('hidden');
@@ -2338,7 +2402,7 @@ function renderFranquiaPorRegional(containerId, porFranquiaPorRegional){
   }
   const avisoHtml = semRegional.length ? `
     <div style="background:#FBE4E4;border:1px solid #e57373;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12.5px;color:#B33636;">
-      <strong>${ic('info')} ${semRegional.length} iniciativa${semRegional.length>1?'s':''} sem regional</strong> — IDs no SharePoint:
+      <strong>${ic('info')} ${semRegional.length} iniciativa${semRegional.length>1?'s':''} sem regional</strong> — IDs:
       <div style="margin-top:6px;display:flex;flex-direction:column;gap:2px;">
         ${semRegional.map(d=>`<span>ID <strong>${d.id}</strong> — <em>${esc(d.franquia||'Sem franquia')}</em></span>`).join('')}
       </div>
@@ -2426,10 +2490,11 @@ function startReview(){
 
 /**
  * Monta a fila de revisão a partir do histórico local desta sessão (rascunhos que o
- * próprio revisor já começou). Como o fluxo "Buscar Iniciativas" já filtra
- * Status/Value eq 'Pendente' direto na Lista do SharePoint, uma iniciativa validada
- * por QUALQUER pessoa simplesmente não aparece mais em RAW_DATA na próxima recarga —
- * não existe mais risco de duas pessoas curando a mesma iniciativa em paralelo.
+ * próprio revisor já começou). O carregamento de dados traz TODAS as iniciativas (não
+ * só as pendentes) — o filtro "próxima pendente" é aplicado aqui, no navegador, com
+ * base no Status real de cada item. Por isso, uma iniciativa validada por QUALQUER
+ * pessoa deixa de entrar na fila assim que a página é recarregada — não existe risco
+ * de duas pessoas curando a mesma iniciativa em paralelo depois de um recarregamento.
  */
 async function buildQueueAndRender(){
   document.getElementById('reviewTopbar').innerHTML = '';
@@ -2474,7 +2539,13 @@ function statusReviewLabel(id){
   return v ? v.status : 'Pendente';
 }
 
-function renderReviewCard(){
+/**
+ * Renderização "crua" do card da Fila de Revisão — pode lançar exceção se algum
+ * registro vier com um formato inesperado. NUNCA chamar diretamente fora deste
+ * arquivo: use sempre renderReviewCard() (wrapper defensivo logo abaixo), que
+ * protege a Fila inteira contra um único registro ruim.
+ */
+function renderReviewCardUnsafe(){
   const item = currentItem();
   if(!item){ renderReviewEmpty(); return; }
 
@@ -2731,6 +2802,58 @@ function renderReviewCard(){
   document.getElementById('btnValidar').addEventListener('click', ()=> handleSave('validar'));
 }
 
+/**
+ * Wrapper defensivo em torno de renderReviewCardUnsafe() (pedido da Regi — proteção
+ * por registro na Fila de Revisão). Um único registro com formato inesperado nunca
+ * pode deixar a tela em branco/quebrada: se a renderização falhar, o erro completo é
+ * registrado SÓ no console (nunca mostrado ao usuário, nunca escondido/engolido — só
+ * silencioso do ponto de vista da interface) e a Fila avança automaticamente para a
+ * próxima iniciativa, até o limite de itens da fila. Se todos os itens restantes
+ * falharem, cai na tela "Nenhuma iniciativa pendente" em vez de travar.
+ */
+function renderReviewCard(){
+  if(AppState.viewingAdHoc){
+    // Item avulso (aberto a partir de "Consultar Iniciativas") — não existe "próximo"
+    // para pular automaticamente aqui; se falhar, mostra a tela vazia em vez de
+    // arriscar navegar a fila real sem o revisor ter pedido.
+    try {
+      renderReviewCardUnsafe();
+    } catch (err) {
+      const item = currentItem();
+      console.error('[FILA DE REVISÃO — ERRO DE RENDERIZAÇÃO]', {
+        id: item && item.id, projeto: item && item.nome,
+        funcao: 'renderReviewCardUnsafe', erro: err, registroCompleto: item,
+      });
+      renderReviewEmpty();
+    }
+    return;
+  }
+
+  const limite = AppState.currentQueue ? AppState.currentQueue.length : 0;
+  let tentativas = 0;
+  while (tentativas <= limite){
+    const item = currentItem();
+    if(!item){ renderReviewEmpty(); return; }
+    try {
+      renderReviewCardUnsafe();
+      return; // renderizou com sucesso
+    } catch (err) {
+      console.error('[FILA DE REVISÃO — ERRO DE RENDERIZAÇÃO]', {
+        id: item && item.id, projeto: item && item.nome,
+        funcao: 'renderReviewCardUnsafe', erro: err, registroCompleto: item,
+      });
+      tentativas++;
+      AppState.currentIndex++;
+      if(!AppState.currentQueue || AppState.currentIndex >= AppState.currentQueue.length){
+        renderReviewEmpty();
+        return;
+      }
+      // continua o laço — tenta renderizar a próxima iniciativa da fila
+    }
+  }
+  renderReviewEmpty(); // toda a fila restante falhou — não trava, mostra a tela vazia
+}
+
 function bindRadioGroup(containerId, onChange){
   const el = document.getElementById(containerId);
   el.querySelectorAll('.radio-pill').forEach(btn=>{
@@ -2778,16 +2901,19 @@ async function handleSave(mode){
     const btnValidar = document.getElementById('btnValidar');
     btnValidar.disabled = true;
     btnValidar.textContent = 'Salvando…';
+    // StatusCase: decidido aqui no front-end (nunca por condição dentro do Power
+    // Automate), de forma idempotente — ver calcularStatusCaseAoValidar().
+    const novoStatusCase = calcularStatusCaseAoValidar(item, draft.potencial);
     try {
-      // Envia o JSON de curadoria para o Power Automate (Fluxo "Central Curadoria -
-      // Salvar Curadoria (SharePoint)"), que faz Update item na Lista "Iniciativas".
-      // Os 12 campos de Case vêm do próprio "item" (valor atual, já persistido no
-      // SharePoint via normalizeIniciativa) — esta tela não os edita, então eles
-      // precisam ir inalterados, nunca vazios (ver comentário em ApiService.salvarCuradoria).
+      // Envia o JSON de curadoria para o backend, que grava na Lista "Iniciativas".
+      // Os 12 campos de Case vêm do próprio "item" (valor atual, já persistido) —
+      // esta tela não os edita, então eles precisam ir inalterados, nunca vazios
+      // (ver comentário em ApiService.salvarCuradoria).
       await ApiService.salvarCuradoria({
         id: item.id,
         categoria: draft.categoria, potencial: draft.potencial,
         nota: draft.nota, parecer: draft.parecer, revisor: AppState.revisor,
+        status_case: novoStatusCase,
         case_situacao_motivo: item.case_situacao_motivo,
         case_situacao_impacto: item.case_situacao_impacto,
         case_requer_investimento: item.case_requer_investimento,
@@ -2802,17 +2928,20 @@ async function handleSave(mode){
         case_materiais_apoio: item.case_materiais_apoio,
       });
     } catch (err) {
-      console.error('[handleSave] Falha ao enviar curadoria ao Power Automate:', err);
+      console.error('[handleSave] Falha ao enviar curadoria:', err);
       document.getElementById('validationErrors').innerHTML = `
         <div class="validation-banner">
-          <div class="vb-title">${ic('question')} Não foi possível salvar no Power Automate</div>
-          <ul><li>${esc(err.message)}</li><li>Nada foi gravado na planilha ainda. Verifique sua conexão e se o fluxo "Salvar Curadoria" está ativo, e tente novamente.</li></ul>
+          <div class="vb-title">${ic('question')} Não foi possível salvar agora</div>
+          <ul><li>Nada foi registrado ainda. Verifique sua conexão e tente novamente.</li></ul>
         </div>`;
       document.getElementById('validationErrors').scrollIntoView({behavior:'smooth', block:'start'});
       btnValidar.disabled = false;
       btnValidar.innerHTML = ic('trophy') + ' Concluir Curadoria';
       return; // não avança nem marca como validado localmente — a gravação real falhou
     }
+    // Grava real confirmada — reflete o novo StatusCase no item em memória agora,
+    // sem esperar um reload completo da página.
+    item.status_case = novoStatusCase;
     // Persistência local — mantida para que Dashboard, Consultar Iniciativas e
     // Indicadores continuem funcionando com o histórico desta sessão.
     await ValidationRepository.commitValidation(record);
@@ -3434,12 +3563,6 @@ function renderCaseBuilder(){
           <div class="ro-full"><div class="ro-full-k">Parecer da Curadoria</div><div class="ro-full-v">${descText(parecerCuradoria(item))}</div></div>
         </div>
 
-        <div class="card" style="padding:14px 18px;margin-bottom:0;margin-top:18px;background:var(--bg);border:1px dashed var(--gl);">
-          <div style="font-size:12.5px;color:var(--gm);line-height:1.6;">
-            <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg> <b>Etapa 5 — teste controlado.</b> A Etapa 4 (mapeamento dos 12 campos de Case no Update item do fluxo "Salvar Curadoria") foi confirmada como salva. O botão "Salvar Case" agora envia de verdade. Use primeiro em <b>uma única iniciativa de teste</b> e confira diretamente no SharePoint antes de usar em iniciativas reais importantes — nenhum outro campo da curadoria é alterado por este envio.
-          </div>
-        </div>
-
         <div id="caseBuilderErrors"></div>
         <div id="caseBuilderSuccess"></div>
 
@@ -3450,10 +3573,12 @@ function renderCaseBuilder(){
           <div class="review-block">
             <div class="rb-label">Qual situação motivou a iniciativa? <span class="req-star">*</span><span class="rb-hint">mínimo 100 caracteres</span></div>
             <textarea class="obs-field" id="cbSituacaoMotivo" placeholder="Descreva o contexto/problema que motivou a iniciativa...">${v('case_situacao_motivo')}</textarea>
+            <div class="char-counter" id="cbSituacaoMotivoCounter"></div>
           </div>
           <div class="review-block">
             <div class="rb-label">Como essa situação impactava a operação? <span class="req-star">*</span><span class="rb-hint">mínimo 100 caracteres</span></div>
             <textarea class="obs-field" id="cbSituacaoImpacto" placeholder="Descreva o impacto na operação antes da iniciativa...">${v('case_situacao_impacto')}</textarea>
+            <div class="char-counter" id="cbSituacaoImpactoCounter"></div>
           </div>
           <div class="review-block">
             <div class="rb-label">A implantação da iniciativa requer investimentos? <span class="req-star">*</span></div>
@@ -3465,12 +3590,14 @@ function renderCaseBuilder(){
           <div class="review-block" id="cbInvestimentosWrap" style="${requerInv==='Sim'?'':'display:none;'}">
             <div class="rb-label">Quais investimentos são necessários? <span class="req-star">*</span><span class="rb-hint">mínimo 100 caracteres</span></div>
             <textarea class="obs-field" id="cbInvestimentosDesc" placeholder="Descreva os investimentos necessários...">${v('case_investimentos_desc')}</textarea>
+            <div class="char-counter" id="cbInvestimentosDescCounter"></div>
           </div>
 
           <div class="ro-group-title">Implantação</div>
           <div class="review-block">
             <div class="rb-label">Como a iniciativa foi implementada? <span class="req-star">*</span><span class="rb-hint">mínimo 100 caracteres</span></div>
             <textarea class="obs-field" id="cbComoImplementado" placeholder="Descreva como a iniciativa foi implementada...">${v('case_como_implementado')}</textarea>
+            <div class="char-counter" id="cbComoImplementadoCounter"></div>
           </div>
           <div class="review-block">
             <div class="rb-label">Ferramentas utilizadas <span class="req-star">*</span></div>
@@ -3485,6 +3612,7 @@ function renderCaseBuilder(){
           <div class="review-block">
             <div class="rb-label">Quais foram os principais benefícios obtidos? <span class="req-star">*</span><span class="rb-hint">mínimo 100 caracteres</span></div>
             <textarea class="obs-field" id="cbBeneficiosObtidos" placeholder="Descreva os benefícios obtidos...">${v('case_beneficios_obtidos')}</textarea>
+            <div class="char-counter" id="cbBeneficiosObtidosCounter"></div>
           </div>
           <div class="review-block">
             <div class="rb-label">Resultados mensuráveis <span class="rb-hint">campo opcional</span></div>
@@ -3495,16 +3623,18 @@ function renderCaseBuilder(){
           <div class="review-block">
             <div class="rb-label">Quais cuidados outra franquia deve ter? <span class="req-star">*</span><span class="rb-hint">mínimo 100 caracteres</span></div>
             <textarea class="obs-field" id="cbCuidadosRecomendados" placeholder="Descreva os cuidados recomendados...">${v('case_cuidados_recomendados')}</textarea>
+            <div class="char-counter" id="cbCuidadosRecomendadosCounter"></div>
           </div>
           <div class="review-block">
             <div class="rb-label">Existe algum pré-requisito importante? <span class="req-star">*</span><span class="rb-hint">mínimo 100 caracteres</span></div>
             <textarea class="obs-field" id="cbPreRequisito" placeholder="Descreva pré-requisitos, se houver...">${v('case_pre_requisito')}</textarea>
+            <div class="char-counter" id="cbPreRequisitoCounter"></div>
           </div>
 
           <div class="ro-group-title">Materiais de Apoio</div>
           <div class="review-block">
             <div class="rb-label">Anexos, links, imagens e documentos <span class="rb-hint">campo opcional — upload de arquivos não está disponível nesta tela; use links</span></div>
-            <textarea class="obs-field" id="cbMateriaisApoio" placeholder="Cole links de materiais de apoio (Drive, SharePoint, etc.)...">${v('case_materiais_apoio')}</textarea>
+            <textarea class="obs-field" id="cbMateriaisApoio" placeholder="Cole links de materiais de apoio (Drive, links externos, etc.)...">${v('case_materiais_apoio')}</textarea>
           </div>
 
         </div>
@@ -3525,11 +3655,52 @@ function renderCaseBuilder(){
     if(wrap) wrap.style.display = v === 'Sim' ? '' : 'none';
   });
 
+  initCaseCharCounters();
+
   const btnVoltar = document.getElementById('btnVoltarCases');
   if(btnVoltar) btnVoltar.addEventListener('click', ()=> goToPage('cases'));
 
   const btnSalvar = document.getElementById('btnSalvarCase');
   if(btnSalvar) btnSalvar.addEventListener('click', handleSaveCase);
+}
+
+/**
+ * Contador de caracteres ao vivo — mesmo mínimo real usado na validação
+ * (CASE_CAMPOS_MIN100 / 100 caracteres), nunca um número inventado. Abaixo do
+ * mínimo mostra "X de MIN caracteres mínimos"; ao atingir o mínimo mostra
+ * "✓ X caracteres" (sem ícone novo — "✓" é caractere de texto simples).
+ */
+const CASE_CAMPOS_CONTADOR = [
+  ['cbSituacaoMotivo', 'cbSituacaoMotivoCounter', 100],
+  ['cbSituacaoImpacto', 'cbSituacaoImpactoCounter', 100],
+  ['cbInvestimentosDesc', 'cbInvestimentosDescCounter', 100],
+  ['cbComoImplementado', 'cbComoImplementadoCounter', 100],
+  ['cbBeneficiosObtidos', 'cbBeneficiosObtidosCounter', 100],
+  ['cbCuidadosRecomendados', 'cbCuidadosRecomendadosCounter', 100],
+  ['cbPreRequisito', 'cbPreRequisitoCounter', 100],
+];
+
+function atualizarContadorCaracteres(textareaId, contadorId, minimo){
+  const textarea = document.getElementById(textareaId);
+  const contador = document.getElementById(contadorId);
+  if(!textarea || !contador) return;
+  const len = textarea.value.trim().length;
+  if(len >= minimo){
+    contador.textContent = `✓ ${len} caracteres`;
+    contador.classList.add('ok');
+  } else {
+    contador.textContent = `${len} de ${minimo} caracteres mínimos`;
+    contador.classList.remove('ok');
+  }
+}
+
+function initCaseCharCounters(){
+  CASE_CAMPOS_CONTADOR.forEach(([textareaId, contadorId, minimo])=>{
+    const textarea = document.getElementById(textareaId);
+    if(!textarea) return;
+    atualizarContadorCaracteres(textareaId, contadorId, minimo);
+    textarea.addEventListener('input', ()=> atualizarContadorCaracteres(textareaId, contadorId, minimo));
+  });
 }
 
 /** Lê os 12 campos do formulário de Construção do Case a partir do DOM. */
@@ -3587,6 +3758,9 @@ async function handleSaveCase(){
   const labelOriginal = btn.innerHTML;
   btn.disabled = true;
   btn.textContent = 'Salvando…';
+  // StatusCase: decidido aqui no front-end (nunca por condição dentro do Power
+  // Automate), de forma idempotente — ver calcularStatusCaseAoSalvarCase().
+  const novoStatusCase = calcularStatusCaseAoSalvarCase(item);
   try {
     await ApiService.salvarCuradoria({
       id: item.id,
@@ -3597,15 +3771,16 @@ async function handleSaveCase(){
       nota: notaCuradoria(item),
       parecer: parecerCuradoria(item),
       revisor: revisorCuradoria(item),
+      status_case: novoStatusCase,
       // Os 12 campos de Case — estes sim, recém-preenchidos nesta tela.
       ...form,
     });
   } catch (err) {
-    console.error('[handleSaveCase] Falha ao salvar Case no Power Automate:', err);
+    console.error('[handleSaveCase] Falha ao enviar Case:', err);
     errBox.innerHTML = `
       <div class="validation-banner">
         <div class="vb-title">${ic('question')} Não foi possível salvar o Case</div>
-        <ul><li>${esc(err.message)}</li><li>Nada foi gravado no SharePoint. Os dados preenchidos nesta tela NÃO foram perdidos — verifique sua conexão e tente novamente.</li></ul>
+        <ul><li>Nada foi registrado ainda. Os dados preenchidos nesta tela NÃO foram perdidos — verifique sua conexão e tente novamente.</li></ul>
       </div>`;
     errBox.scrollIntoView({behavior:'smooth', block:'start'});
     btn.disabled = false;
@@ -3613,14 +3788,57 @@ async function handleSaveCase(){
     return; // não marca sucesso, não altera o item local — a gravação real falhou
   }
 
-  // Sucesso confirmado pela resposta HTTP do Power Automate — só agora atualiza o
-  // registro local (mesmo "item" referenciado por RAW_DATA, sem duplicar nada) e a tela.
+  // Sucesso confirmado pela resposta HTTP — só agora atualiza o registro local (mesmo
+  // "item" referenciado por RAW_DATA, sem duplicar nada) e mostra o modal de sucesso.
   Object.assign(item, form);
+  item.status_case = novoStatusCase;
   btn.disabled = false;
   btn.innerHTML = labelOriginal;
-  showToast('Case salvo com sucesso.');
-  if(okBox) okBox.innerHTML = `<div class="card" style="padding:12px 18px;margin-bottom:20px;background:#EAF7F0;border:1.5px solid #BEE6CE;border-radius:var(--r);font-size:12.5px;color:#1E7A45;font-weight:600;">${ic('trophy')} Case salvo com sucesso no SharePoint.</div>`;
+  abrirModalSucessoCase(item.id);
 }
+
+/** Abre o modal "Case salvo com sucesso!" — só chamado após confirmação real de gravação. */
+function abrirModalSucessoCase(idSalvo){
+  const overlay = document.getElementById('caseSuccessOverlay');
+  if(!overlay) return;
+  overlay.dataset.idSalvo = String(idSalvo);
+  overlay.classList.add('open');
+}
+
+function fecharModalSucessoCase(){
+  const overlay = document.getElementById('caseSuccessOverlay');
+  if(overlay) overlay.classList.remove('open');
+}
+
+/**
+ * Botão "Próximo Case" do modal de sucesso — vai para a próxima iniciativa Legado
+ * ainda sem Case construído (mesma regra de elegibilidade da aba Cases), excluindo a
+ * que acabou de ser salva. Se não houver mais nenhuma, volta para a aba Cases.
+ */
+function irParaProximoCase(){
+  const overlay = document.getElementById('caseSuccessOverlay');
+  const idSalvo = overlay ? Number(overlay.dataset.idSalvo) : null;
+  fecharModalSucessoCase();
+  const proximo = RAW_DATA
+    .filter(d => (d.status || '') !== 'Sem Iniciativa')
+    .filter(d => d.id !== idSalvo)
+    .find(d => elegivelCaseManual(d) && !temCaseEstruturado(d));
+  if(proximo){
+    abrirConstrucaoCase(proximo.id);
+  } else {
+    showToast('Não há mais nenhum Case pendente de construção no momento.');
+    goToPage('cases'); // já chama renderCases() internamente
+  }
+}
+
+document.getElementById('caseSuccessBackBtn').addEventListener('click', ()=>{
+  fecharModalSucessoCase();
+  goToPage('cases'); // já chama renderCases() internamente
+});
+document.getElementById('caseSuccessNextBtn').addEventListener('click', irParaProximoCase);
+document.getElementById('caseSuccessOverlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'caseSuccessOverlay') fecharModalSucessoCase();
+});
 
 function renderLista(){
   buildListaFilterPanel();
