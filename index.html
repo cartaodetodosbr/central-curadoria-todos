@@ -582,6 +582,46 @@ textarea.obs-field:focus, .edit-select:focus{outline:none;border-color:var(--t);
   100% { box-shadow:0 6px 22px rgba(255,255,255,.35), 0 0 0 0 rgba(255,255,255,0); }
 }
 
+
+/* Modal "Ver Case" — detalhe completo, aberto sobre a página Cases sem navegar */
+.case-detail-overlay{z-index:400;display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;overflow-y:auto;}
+.case-detail-modal{background:#fff;border-radius:var(--rxl);box-shadow:var(--sh2);max-width:920px;width:100%;margin:auto;max-height:calc(100vh - 64px);display:flex;flex-direction:column;overflow:hidden;}
+.case-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:22px 26px;border-bottom:1.5px solid var(--gl);flex-shrink:0;}
+.case-detail-close{background:var(--bg);border:1.5px solid var(--gl);border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--gd);flex-shrink:0;}
+.case-detail-close:hover{background:var(--tp);color:var(--pd);}
+.case-detail-close svg{width:16px;height:16px;}
+.case-detail-body{padding:22px 26px 30px;overflow-y:auto;}
+.cd-eyebrow{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--t);margin-bottom:4px;}
+.cd-title{font-size:1.15rem;color:var(--pd);font-weight:800;margin-bottom:8px;}
+.cd-meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12.5px;color:var(--gm);}
+
+/* Fila: seletor de estratégia */
+.strategy-picker{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;}
+.strategy-opt{padding:8px 16px;border-radius:50px;border:1.5px solid var(--gl);background:#fff;font-size:12.5px;font-weight:700;color:var(--gd);cursor:pointer;}
+.strategy-opt.on{background:var(--pd);border-color:var(--pd);color:#fff;}
+.strategy-opt .so-count{margin-left:6px;opacity:.75;}
+
+/* status pill (Central) */
+.status-pill{font-size:10.5px;font-weight:800;padding:3px 11px;border-radius:20px;}
+.status-pill.Pendente{background:var(--bg);color:var(--gm);}
+.status-pill.Emrevisao{background:#FFF3D6;color:#93700B;}
+.status-pill.Validada{background:#E1F3E6;color:var(--p);}
+.status-pill.Necessitarevisao{background:#FBE4E4;color:#B33636;}
+
+/* Badge do StatusCase (ciclo de validação do próprio Case) — deliberadamente um
+   componente visual DIFERENTE do .status-pill (Status geral da iniciativa) e do
+   .badge (Modelo/Potencial), para não misturar os três conceitos na mesma tela. */
+.case-status-badge{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;padding:3px 11px 3px 9px;border-radius:20px;border:1px solid transparent;}
+.case-status-badge .dot{width:7px;height:7px;border-radius:50%;flex:none;}
+.case-status-badge.Pendente{background:#F1F0EC;color:#6B6B60;}
+.case-status-badge.Pendente .dot{background:#9C9C8F;}
+.case-status-badge.Emvalidacao{background:#FFF3D6;color:#93700B;}
+.case-status-badge.Emvalidacao .dot{background:#C98A0A;}
+.case-status-badge.ProntoparaBiblioteca{background:#E1F3E6;color:#1E7A45;}
+.case-status-badge.ProntoparaBiblioteca .dot{background:#2E9A5C;}
+
+/* lista de auditoria */
+.audit-row{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gl
 </style>
 </head>
 <body>
@@ -628,6 +668,7 @@ textarea.obs-field:focus, .edit-select:focus{outline:none;border-color:var(--t);
       <a class="navitem active" data-page="dashboard"><span class="ic"><svg class="icon" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg></span> Página Inicial</a>
       <a class="navitem" data-page="revisao"><span class="ic"><svg class="icon" viewBox="0 0 24 24"><path d="M13 3 4 14h7l-1 7 9-11h-7l1-7z"/></svg></span> Fila de Revisão</a>
       <a class="navitem" data-page="lista"><span class="ic"><svg class="icon" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span> Consultar Iniciativas</a>
+      <a class="navitem" data-page="cases"><span class="ic"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="1.5"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/></svg></span> Cases</a>
       <a class="navitem" data-page="indicadores"><span class="ic"><svg class="icon" viewBox="0 0 24 24"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg></span> Indicadores</a>
     </div>
     <div class="sidebar-foot">
@@ -706,6 +747,53 @@ textarea.obs-field:focus, .edit-select:focus{outline:none;border-color:var(--t);
       </section>
 
       <!-- ===================== INDICADORES ===================== -->
+      <section class="page" id="page-cases">
+        <div class="sh">
+          <div class="tag">Biblioteca de Iniciativas Digitais</div>
+          <h2>Cases</h2>
+          <p>Iniciativas que já passaram pela Curadoria e seguem para a construção ou revisão do Case — Legado e Novo Modelo, cada uma na sua esteira.</p>
+        </div>
+
+        <div class="catalog-layout">
+          <aside class="filter-panel" id="casesFilterPanel"></aside>
+          <div>
+            <div class="catalog-toolbar">
+              <input type="search" id="casesSearch" placeholder="Buscar por nome, franquia..." style="flex:1;min-width:200px;padding:9px 14px;border-radius:50px;border:1.5px solid var(--gl);font-family:'DM Sans',sans-serif;font-size:13px;">
+              <button type="button" class="btn btn-ghost btn-sm" id="btnExportarCasesIA"><svg class="icon" viewBox="0 0 24 24"><path d="M4 5h16l-6 7.5V19l-4 2v-8.5L4 5z"/></svg> Exportar Cases</button>
+            </div>
+
+            <div id="casesLegadoSection">
+              <div class="sh" style="margin-bottom:10px;">
+                <h3 style="color:var(--pd);display:flex;align-items:center;gap:8px;"><svg class="icon" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> Cases Manuais — Legado</h3>
+                <p style="font-size:12.5px;">Iniciativas cadastradas até 19/08/2026, classificadas pela Curadoria com alto potencial de replicação e que precisam ter o Case construído manualmente.</p>
+              </div>
+              <div id="casesLegadoCount" style="font-size:12.5px;color:var(--gm);margin-bottom:10px;"></div>
+              <div class="cat-grid" id="casesLegadoView"></div>
+              <div style="text-align:center;margin:16px 0 28px;"><button type="button" class="btn btn-ghost btn-sm" id="btnVerTodosLegado" style="display:none;"></button></div>
+            </div>
+
+            <div id="casesNovoSection">
+              <div class="sh" style="margin-bottom:10px;">
+                <h3 style="color:var(--pd);display:flex;align-items:center;gap:8px;"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="1.5"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/></svg> Cases Estruturados pelo Portal</h3>
+                <p style="font-size:12.5px;">Iniciativas cadastradas a partir de 20/08/2026 que já possuem as informações de Case preenchidas pelo Portal e precisam apenas da avaliação da Curadoria.</p>
+              </div>
+              <div id="casesNovoCount" style="font-size:12.5px;color:var(--gm);margin-bottom:10px;"></div>
+              <div class="cat-grid" id="casesNovoView"></div>
+              <div style="text-align:center;margin:16px 0;"><button type="button" class="btn btn-ghost btn-sm" id="btnVerTodosNovo" style="display:none;"></button></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="page-construir-case">
+        <div class="sh">
+          <div class="tag">Cases Manuais — Legado</div>
+          <h2>Construção do Case</h2>
+          <p>Preencha manualmente o Case desta iniciativa, reutilizando a mesma estrutura de perguntas do novo Portal das Franquias.</p>
+        </div>
+        <div id="caseBuilderShell"></div>
+      </section>
+
       <section class="page" id="page-indicadores">
         <div class="sh">
           <div class="tag">Análise da Curadoria</div>
@@ -2964,6 +3052,2592 @@ document.getElementById('btnExportar').addEventListener('click', ()=>{
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 });
+
+</script>
+<script>
+/* ============================================================
+   CAMADA DE UI — parte 1: utilitários, estado global, navegação
+   Esta camada SÓ chama ValidationService e ValidationRepository.
+   Nunca lê/grava dados diretamente.
+   ============================================================ */
+function esc(s){ return (s===null||s===undefined||s==='') ? '—' : String(s); }
+function slug(s){ return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9]/g,''); }
+
+function precomputeAreas(){
+  RAW_DATA.forEach((item) => { item._areaSugerida = sugerirArea(item.categoria_original, item.tecnologias_original); });
+}
+
+const AppState = {
+  revisor: '',
+  // Fila de Revisão simplificada: sempre a lista de pendentes (getIniciativasPendentes())
+  // recalculada na hora — nunca um índice guardado. currentQueue[0] é sempre "a iniciativa
+  // atual". null = ainda não entrou na Fila nesta visita à página.
+  currentQueue: null,
+  currentDraft: null, // formulário em edição da iniciativa atual
+  // Correção do bug "Fila de Revisão presa no item avulso": abrir uma iniciativa a partir
+  // de Consultar Iniciativas NÃO deve mais sobrescrever currentQueue (a fila real). Em vez
+  // disso, usa este estado separado, para que voltar à Fila de Revisão pelo menu sempre
+  // mostre a fila de verdade (a primeira pendente), nunca o item avulso.
+  viewingAdHoc: false,
+  adHocItem: null,
+  // Correção do Problema 1 (rodada "Construção do Case"): a iniciativa aberta na tela
+  // dedicada de Construção do Case Manual. Estado 100% separado de currentQueue e de
+  // viewingAdHoc/adHocItem — nada aqui toca a Fila de Revisão.
+  caseBuilderItem: null,
+};
+
+const PAGE_TITLES = {
+  dashboard: 'Página Inicial',
+  revisao: 'Fila de Revisão',
+  lista: 'Consultar Iniciativas',
+  cases: 'Cases',
+  'construir-case': 'Construção do Case',
+  indicadores: 'Indicadores',
+};
+
+function goToPage(page){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const target = document.getElementById('page-'+page);
+  if(target) target.classList.add('active');
+  document.querySelectorAll('.navitem').forEach(n=>n.classList.remove('active'));
+  // "Construção do Case" não tem item próprio no menu (é uma sub-etapa de Cases) —
+  // mantém "Cases" destacado no menu enquanto o curador está nesta tela.
+  const highlightPage = page === 'construir-case' ? 'cases' : page;
+  document.querySelectorAll('.navitem[data-page="'+highlightPage+'"]').forEach(n=>n.classList.add('active'));
+  document.getElementById('pageTitle').textContent = PAGE_TITLES[page] || '';
+  document.getElementById('sidebar').classList.remove('open');
+  window.scrollTo({top:0,behavior:'smooth'});
+  if(page==='dashboard') renderDashboard();
+  if(page==='lista') renderLista();
+  if(page==='indicadores') renderIndicadores();
+  if(page==='cases') renderCases();
+  // Fila de Revisão simplificada: toda vez que a página é aberta (menu, botão "Iniciar
+  // Revisão", ou direto após o login, sem precisar passar por Consultar Iniciativas
+  // antes), ela recalcula a primeira iniciativa Pendente do zero — nunca depende de um
+  // estado deixado por outra tela nem de uma fila montada anteriormente.
+  if(page==='revisao' && !AppState.viewingAdHoc) buildQueueAndRender();
+  location.hash = page;
+}
+
+document.addEventListener('click', (e)=>{
+  const nav = e.target.closest('.navitem');
+  if(nav){
+    e.preventDefault();
+    const page = nav.dataset.page;
+    if(page==='revisao'){
+      // Clicar em "Fila de Revisão" pelo menu sempre sai do modo avulso (item aberto a
+      // partir de "Consultar Iniciativas") e mostra a fila de verdade — goToPage já
+      // recalcula a primeira pendente sozinho.
+      AppState.viewingAdHoc = false;
+    }
+    goToPage(page);
+  }
+});
+document.getElementById('menuBtn').addEventListener('click', ()=>{
+  document.getElementById('sidebar').classList.toggle('open');
+});
+
+/* ---------- Portal de entrada: identificação simples do revisor ---------- */
+function initReviewerGate(){
+  const gate = document.getElementById('reviewerGate');
+  const input = document.getElementById('reviewerNameInput');
+  const btn = document.getElementById('reviewerGateBtn');
+  function submit(){
+    const v = input.value.trim();
+    if(!v) { input.focus(); return; }
+    AppState.revisor = v;
+    document.getElementById('reviewerBadge').textContent = v;
+    gate.classList.add('hidden');
+    renderDashboard();
+  }
+  btn.addEventListener('click', submit);
+  input.addEventListener('keydown', (e)=>{ if(e.key==='Enter') submit(); });
+  input.focus();
+}
+
+/**
+ * Converte o formato de data que o SharePoint devolve para "Data e Hora do Cadastro"
+ * ("07/24/2026 10:16:18", ou seja MM/DD/YYYY HH:mm:ss) em um objeto Date de verdade.
+ * Se o valor vier vazio/ausente (cadastros antigos, migrados antes da coluna existir),
+ * devolve null — quem chamar decide como tratar (normalmente: não marca como "novo").
+ */
+function parseDataCadastro(valor){
+  if(!valor) return null;
+  const m = String(valor).match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/);
+  if(!m) return null;
+  const [, mes, dia, ano, hh, mm, ss] = m;
+  return new Date(Number(ano), Number(mes)-1, Number(dia), Number(hh), Number(mm), Number(ss));
+}
+
+/* ---------- Indicativo de "item novo" — por curador, guardado no navegador ---------- */
+const NOVO_ITEM_STORAGE_KEY = 'centralCuradoria_ultimoAcesso';
+
+function getUltimoAcesso(){
+  const raw = localStorage.getItem(NOVO_ITEM_STORAGE_KEY);
+  return raw ? new Date(raw) : null;
+}
+
+function marcarAcessoAgora(){
+  localStorage.setItem(NOVO_ITEM_STORAGE_KEY, new Date().toISOString());
+}
+
+/** Marca item._novo = true/false em cada item de RAW_DATA, comparando com o último acesso salvo. */
+function marcarItensNovos(ultimoAcesso){
+  RAW_DATA.forEach((item) => {
+    const dataCadastro = parseDataCadastro(item.data_hora_cadastro);
+    item._novo = !!(dataCadastro && ultimoAcesso && dataCadastro > ultimoAcesso);
+  });
+}
+
+function contarItensNovos(){
+  return RAW_DATA.filter(item => item._novo).length;
+}
+
+/* ============================================================
+   ETAPA 3 — Legado × Novo Modelo (transição do Case)
+   ============================================================
+   Classificação 100% DERIVADA a partir da data de cadastro já existente
+   (item.data_hora_cadastro / coluna "Data e Hora do Cadastro" no SharePoint).
+   NÃO grava nada, NÃO cria coluna nova, NÃO altera nenhum registro — é só
+   para a interface decidir como mostrar cada iniciativa.
+   Regra combinada com a Regi:
+     data de cadastro <= 19/08/2026  → LEGADO
+     data de cadastro >= 20/08/2026  → NOVO MODELO
+     sem data (registro antigo migrado antes da coluna existir) → LEGADO
+   ============================================================ */
+const DATA_CORTE_CASE = new Date(2026, 7, 19, 23, 59, 59, 999); // 19/08/2026 23:59:59 (mês 7 = agosto, 0-indexado)
+
+/** 'legado' | 'novo' — nunca lança erro, mesmo com data ausente/ilegível. */
+function classificarModelo(item){
+  const d = parseDataCadastro(item && item.data_hora_cadastro);
+  if(!d) return 'legado'; // sem data → trata como legado (regra explícita)
+  return d.getTime() > DATA_CORTE_CASE.getTime() ? 'novo' : 'legado';
+}
+
+/** Rótulo amigável usado nos badges e no filtro "Modelo de Case". */
+function modeloLabel(item){
+  return classificarModelo(item) === 'novo' ? 'Case estruturado pelo Portal' : 'Case legado';
+}
+
+/** Badge visual — reaproveita o componente .badge já existente na Central. */
+function modeloBadgeHtml(item){
+  return classificarModelo(item) === 'novo'
+    ? `<span class="badge b-teal">${ic('sparkle')} Case estruturado pelo Portal</span>`
+    : `<span class="badge b-gray">Case legado — análise manual</span>`;
+}
+
+/** Os 12 campos de conteúdo do Case (Etapa 2/2B) — usados só para leitura aqui. */
+const CASE_CONTENT_FIELDS = [
+  'case_situacao_motivo','case_situacao_impacto','case_requer_investimento',
+  'case_investimentos_desc','case_como_implementado','case_ferramentas_utilizadas',
+  'case_areas_envolvidas','case_beneficios_obtidos','case_resultados_mensuraveis',
+  'case_cuidados_recomendados','case_pre_requisito','case_materiais_apoio'
+];
+
+/**
+ * Um item tem Case estruturado "de verdade" se PELO MENOS UM dos 12 campos tiver
+ * conteúdo. Cobre com segurança tanto registros legados (campos nem existem no
+ * objeto) quanto Novo Modelo sem Case (campos existem mas vêm vazios do SharePoint) —
+ * os dois casos resultam em `false`, sem lançar erro.
+ */
+function temCaseEstruturado(item){
+  if(!item) return false;
+  return CASE_CONTENT_FIELDS.some(f => String(item[f] || '').trim() !== '');
+}
+
+/* ============================================================
+   REGRA DE NEGÓCIO — elegibilidade para Curadoria (Possui Iniciativa)
+   ============================================================
+   Achado real (Console, produção): 44 registros com Possui Iniciativa = "Não" e
+   Status diferente de "Sem Iniciativa" (21 Pendente + 23 Validada) — chegam à Fila,
+   às contagens de pendências e podiam chegar a Cases mesmo sem nenhuma iniciativa de
+   verdade para analisar, porque a franquia respondeu "Não" no formulário. Decisão da
+   Regi: Status no SharePoint ≠ elegibilidade para Curadoria — a elegibilidade
+   operacional (Fila, Cases, Consultar Iniciativas, contagens de pendência) considera
+   OBRIGATORIAMENTE o que a própria franquia respondeu em "Possui Iniciativa", e não só
+   o campo Status. Não altera o Status no SharePoint (fica como está na origem) — é uma
+   regra só de leitura/filtro, aplicada em tempo real no front-end. RAW_DATA continua
+   com os 44 registros; eles seguem contando nos indicadores gerais (Total de
+   Respostas, % Com/Sem Iniciativa) — só saem do FLUXO OPERACIONAL de curadoria/Cases.
+   ============================================================ */
+
+/**
+ * true somente quando a franquia respondeu explicitamente "Sim" para "Possui
+ * Iniciativa". Qualquer outra coisa — "Não", vazio, null, ou um valor fora do
+ * esperado — é tratada como "não é Sim" (lado seguro: elegibilidade exige um "Sim"
+ * reconhecível, nunca o contrário). Mesmo padrão de comparação (tolerante a
+ * maiúscula/minúscula) já usado em dashboardStats() e na tela de Indicadores.
+ * Um valor que não bate nem com "sim" nem com "não" é registrado no console (só
+ * diagnóstico, nunca visível ao usuário) para não desaparecer sem rastro.
+ */
+function possuiIniciativaRespondida(item){
+  const bruto = (item && item.possui_iniciativa) || '';
+  const v = bruto.toLowerCase().trim();
+  if(v.startsWith('sim')) return true;
+  if(v === '' || v.startsWith('não') || v.startsWith('nao')) return false;
+  console.error('[elegivelParaCuradoria] Valor inesperado em possui_iniciativa (tratado como "não Sim")', {
+    id: item && item.id, nome: item && item.nome, valor_bruto: bruto,
+  });
+  return false;
+}
+
+/**
+ * true quando o registro deve ser tratado como "Sem Iniciativa" para fins de fluxo
+ * operacional — verdadeiro tanto para o Status já gravado como "Sem Iniciativa" no
+ * SharePoint quanto para qualquer registro em que a franquia não respondeu "Sim" para
+ * Possui Iniciativa, mesmo que o Status ainda diga "Pendente" ou "Validada" na origem.
+ */
+function tratarComoSemIniciativa(item){
+  if(!item) return true;
+  if(item.status === 'Sem Iniciativa') return true;
+  return !possuiIniciativaRespondida(item);
+}
+
+/**
+ * Fonte única de verdade sobre "este registro deve entrar no fluxo operacional de
+ * Curadoria?" (Fila de Revisão, contagem de pendências, Consultar Iniciativas, Cases,
+ * "Próximo Case"). Substitui os filtros `status !== 'Sem Iniciativa'` que estavam
+ * duplicados em 6 pontos diferentes do arquivo. Não altera RAW_DATA nem o Status de
+ * nenhum registro — só decide o que aparece nas telas operacionais.
+ */
+function elegivelParaCuradoria(item){
+  return !tratarComoSemIniciativa(item);
+}
+
+/* ============================================================
+   ETAPA 3.1 — Página "Cases" (transição operacional Legado × Novo Modelo)
+   ============================================================
+   Reaproveita EXATAMENTE a mesma noção de "revisado"/"potencial oficial" já
+   usada em statusOf()/renderReviewCard() — sessão local (ValidationRepository)
+   tem precedência, senão usa o valor persistido no SharePoint via normalizeIniciativa.
+   Nada aqui grava dado nenhum — é 100% derivado, recalculado a cada render.
+   ============================================================ */
+
+/** Potencial de Replicação DEFINIDO PELA CURADORIA — nunca a autoavaliação da franquia. */
+function potencialCuradoria(item){
+  const local = ValidationRepository.getById(item.id);
+  if(local) return local.potencial_validado || '';
+  return item.potencial_validado || '';
+}
+
+/**
+ * Rótulo de exibição para o Potencial de Replicação DA CURADORIA. O valor real gravado
+ * é minúsculo/sem acento ("alto","medio","baixo","nao_avaliavel" — ver MASTER.potencialReplicacao,
+ * fonte dos botões da tela de revisão). Isto é só cosmético: a comparação de regra de
+ * negócio em elegivelCaseManual()/elegivelCaseEstruturado() sempre usa o valor cru.
+ */
+const POTENCIAL_CURADORIA_LABEL = { alto: 'Alto', medio: 'Médio', baixo: 'Baixo', nao_avaliavel: 'Não avaliável' };
+function potencialCuradoriaLabel(item){
+  const v = potencialCuradoria(item);
+  return v ? (POTENCIAL_CURADORIA_LABEL[v] || esc(v)) : '';
+}
+
+/**
+ * Categoria Oficial DEFINIDA PELA CURADORIA — mesmo padrão de precedência de
+ * potencialCuradoria() (sessão local primeiro, senão o valor persistido no
+ * SharePoint via normalizeIniciativa). Usada na Identificação da tela de
+ * Construção do Case.
+ */
+function categoriaOficialCuradoria(item){
+  const local = ValidationRepository.getById(item.id);
+  if(local) return local.categoria_validada || '';
+  return item.categoria_validada || '';
+}
+
+/**
+ * Nota de Reconhecimento / Parecer / Revisor DEFINIDOS PELA CURADORIA — mesmo padrão
+ * de precedência das funções acima. Usadas pela tela de Construção do Case para
+ * reenviar, sem alterar, os campos de curadoria já gravados quando o que está sendo
+ * salvo é só o Case (ver ApiService.salvarCuradoria — nunca envia um desses campos
+ * "vazio" por engano, o que arriscaria apagar dado já gravado no SharePoint).
+ */
+function notaCuradoria(item){
+  const local = ValidationRepository.getById(item.id);
+  if(local) return local.potencial_reconhecimento || 0;
+  return item.nota_reconhecimento || 0;
+}
+function parecerCuradoria(item){
+  const local = ValidationRepository.getById(item.id);
+  if(local) return local.parecer_curadoria || '';
+  return item.parecer_curadoria || '';
+}
+function revisorCuradoria(item){
+  const local = ValidationRepository.getById(item.id);
+  if(local) return local.revisor || '';
+  return item.revisor_curadoria || '';
+}
+
+/* ============================================================
+   STATUSCASE — ciclo de vida da REVISÃO do Case, independente do Status geral
+   da iniciativa/curadoria. Backend já grava e devolve StatusCase (Gates 2/3).
+
+   Valores oficiais (decisão do auditor, nunca calculados automaticamente pelo
+   sistema): "Pendente" / "Em validação" / "Pronto para Biblioteca". Quem decide
+   o valor é sempre o auditor, na tela do próprio Case — a Central nunca infere
+   ou avança esse status sozinha como efeito colateral de outra ação.
+   ============================================================ */
+
+/**
+ * Status do Case, para exibição/normalização. Registros sem valor gravado
+ * (histórico anterior à criação do campo, ou iniciativas que nunca entraram na
+ * esteira de Case) são tratados como "Pendente" só na exibição — nunca
+ * sobrescrevemos um valor já existente ("Em validação"/"Pronto para Biblioteca")
+ * de volta para "Pendente" só porque a tela foi reaberta.
+ */
+function statusCaseOf(item){
+  return (item && item.status_case) ? item.status_case : 'Pendente';
+}
+
+/**
+ * Ao concluir a Curadoria da iniciativa (handleSave, modo "validar"), o StatusCase
+ * NÃO é mais decidido automaticamente aqui — quem decide o resultado da revisão do
+ * Case é sempre o auditor, na tela do próprio Case (ver cbStatusCase/cdStatusCase).
+ * Esta função só preserva o valor atual (ou "Pendente" se ainda não existir),
+ * garantindo que o campo sempre seja reenviado com um valor válido.
+ */
+function calcularStatusCaseAoValidar(item){
+  return statusCaseOf(item);
+}
+
+/**
+ * Legado, já validado pela Curadoria (statusOf === 'Validada'), com potencial ALTO
+ * definido pela CURADORIA (não a autoavaliação da franquia) → entra na esteira de
+ * Case Manual. Não coloca automaticamente todo legado — só quem passou pelo crivo.
+ * CORREÇÃO: o valor real salvo pela Curadoria é "alto" (minúsculo, sem acento) — não
+ * "Alto". Comparar com o literal errado fazia esta função nunca bater com nada.
+ */
+function elegivelCaseManual(item){
+  return classificarModelo(item) === 'legado'
+    && statusOf(item.id) === 'Validada'
+    && potencialCuradoria(item) === 'alto';
+}
+
+/**
+ * Novo Modelo com Case preenchido pelo Portal E já validado pela Curadoria (mesma
+ * definição de "Revisada" usada em toda a Central) → entra em "Cases Estruturados
+ * pelo Portal". Decisão explícita da Regi: exigir Validada aqui, mesmo sem existir
+ * ainda um campo de decisão específica do Case (StatusCase/ElegivelParaCase, fora de
+ * escopo) — a validação geral da Curadoria (categoria/potencial/parecer) é o gate
+ * disponível hoje.
+ */
+function elegivelCaseEstruturado(item){
+  return classificarModelo(item) === 'novo'
+    && temCaseEstruturado(item)
+    && statusOf(item.id) === 'Validada';
+}
+
+/**
+ * Novo Modelo com Case preenchido MAS ainda não validado pela Curadoria — o "backlog"
+ * que continua na Fila de Revisão normalmente, só usado para o indicador do Dashboard
+ * (não tem lista própria na página Cases, para não duplicar a Fila de Revisão).
+ */
+function temCaseAguardandoAvaliacao(item){
+  return classificarModelo(item) === 'novo' && temCaseEstruturado(item) && statusOf(item.id) !== 'Validada';
+}
+
+/** Data de cadastro formatada para exibição — nunca lança erro, mesmo com texto inválido. */
+function dataCadastroDisplay(item){
+  const d = parseDataCadastro(item && item.data_hora_cadastro);
+  return d ? d.toLocaleDateString('pt-BR') : (item && item.data_hora_cadastro ? esc(item.data_hora_cadastro) : '—');
+}
+
+/**
+ * Data da Curadoria — SÓ disponível quando o item foi validado NESTA sessão (o
+ * SharePoint/Select ainda não devolve uma data de curadoria persistida). Para itens
+ * validados em sessões anteriores, mostra "—" em vez de inventar uma data.
+ */
+function dataCuradoriaDisplay(item){
+  const local = ValidationRepository.getById(item.id);
+  if(local && local.data_hora){
+    const d = new Date(local.data_hora);
+    return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR');
+  }
+  return '—';
+}
+
+/** Resumo curto (não inventa nada — só corta o texto real do campo). */
+function resumoCurto(texto, max){
+  const t = String(texto || '').trim();
+  if(!t) return '<span style="color:var(--gm);font-style:italic;">Não informado.</span>';
+  return esc(t.length > max ? t.slice(0, max).trim() + '…' : t);
+}
+
+/**
+ * Normaliza um item vindo do fluxo "Buscar Iniciativas" (Lista SharePoint) para o
+ * formato que o resto da Central espera — o mesmo formato que a antiga Fase 1
+ * (análise prévia sobre a planilha) produzia.
+ *
+ * IMPORTANTE: a Lista do SharePoint não tem mais uma "Fase 1" de pré-análise
+ * (categoria sugerida por IA, nível de confiança, tecnologias sugeridas). Em vez
+ * disso, usamos a CATEGORIA QUE A PRÓPRIA FRANQUIA INFORMOU no formulário como
+ * sugestão inicial para o curador — sem nível de confiança, porque essa informação
+ * genuinamente não existe mais. O curador sempre decide a categoria final.
+ */
+function normalizeIniciativa(raw){
+  const tecnologias = (raw.ferramentas_chips || '')
+    .split(',').map(s=>s.trim()).filter(Boolean);
+  return Object.assign({}, raw, {
+    nome: raw.nome_projeto || '(Sem nome informado)',
+    franquia: raw.nome_franquia || '',
+    // Sugestão inicial = categoria que a própria franquia escolheu no formulário.
+    categoria_original: raw.categoria || '',
+    tecnologias_original: tecnologias,
+    // Não existe mais "potencial sugerido" nem "observação de confiança" —
+    // ficam vazios; o curador preenche o potencial do zero na tela de revisão.
+    potencial_original: undefined,
+    observacao_original: '',
+    // Campos de curadoria — só presentes se o item já foi validado e o Select
+    // do fluxo "Buscar Iniciativas" mapeia essas colunas do SharePoint.
+    // Nomes esperados no payload (devem ser adicionados ao Select do Power Automate):
+    //   categoria_oficial   → coluna CategoriaOficial
+    //   potencial_replicacao → coluna PotencialReplicacao
+    //   nota_reconhecimento → coluna NotaReconhecimento
+    //   parecer_curadoria   → coluna ParecerCuradoria
+    //   revisor_curadoria   → coluna Revisor
+    categoria_validada:   raw.categoria_oficial     || null,
+    potencial_validado:   raw.potencial_replicacao  || null,
+    nota_reconhecimento:  raw.nota_reconhecimento   ? Number(raw.nota_reconhecimento) : 0,
+    parecer_curadoria:    raw.parecer_curadoria     || '',
+    revisor_curadoria:    raw.revisor_curadoria     || '',
+    // Campo próprio do ciclo de vida do Case (independente do Status geral de
+    // curadoria). Registros antigos/ainda não tocados vêm null/undefined do
+    // SharePoint — normalizado para exibição como "Pendente" por statusCaseOf().
+    status_case: raw.status_case || null,
+  });
+}
+
+async function initApp(){
+  const loading = document.getElementById('appLoadingScreen');
+  const errorScreen = document.getElementById('appErrorScreen');
+  const errorMsg = document.getElementById('appErrorMsg');
+
+  loading.classList.remove('hidden');
+  errorScreen.classList.add('hidden');
+
+  try {
+    const dados = await ApiService.buscarTodasIniciativas();
+    if(!Array.isArray(dados) || dados.length === 0){
+      throw new Error('O sistema respondeu, mas não retornou nenhuma iniciativa.');
+    }
+    // "id" já vem como número da Lista do SharePoint, mas Number(...) aqui garante
+    // isso mesmo se algum conector devolver como texto.
+    RAW_DATA = dados.map((item) => {
+      const normalizado = normalizeIniciativa(item);
+      normalizado.id = Number(normalizado.id);
+      return normalizado;
+    });
+    // Lê o último acesso salvo ANTES de atualizá-lo — senão todo item deixaria de
+    // parecer "novo" na mesma visita em que apareceu.
+    const ultimoAcesso = getUltimoAcesso();
+    marcarItensNovos(ultimoAcesso);
+    marcarAcessoAgora();
+    precomputeAreas();
+    loading.classList.add('hidden');
+    document.getElementById('reviewerGate').classList.remove('hidden');
+    initReviewerGate();
+    goToPage('dashboard');
+  } catch (err) {
+    console.error('[initApp] Falha ao carregar iniciativas:', err);
+    loading.classList.add('hidden');
+    errorMsg.textContent = 'Não conseguimos carregar os dados agora. Verifique sua conexão e tente novamente. '
+      + 'Se o problema continuar, avise a área responsável.';
+    errorScreen.classList.remove('hidden');
+  }
+}
+
+document.getElementById('appRetryBtn').addEventListener('click', initApp);
+document.getElementById('appOfflineBtn').addEventListener('click', ()=>{
+  if(typeof MOCK_RAW_DATA_FALLBACK === 'undefined' || !MOCK_RAW_DATA_FALLBACK.length){
+    showToast('Não há dados de exemplo disponíveis neste arquivo.');
+    return;
+  }
+  // Mesmo pipeline único de normalização usado em initApp() — nenhuma tela deve
+  // trabalhar com um formato de dado diferente dependendo de como os dados chegaram.
+  RAW_DATA = MOCK_RAW_DATA_FALLBACK.map((item) => {
+    const normalizado = normalizeIniciativa(item);
+    normalizado.id = Number(normalizado.id);
+    return normalizado;
+  });
+  const ultimoAcessoOffline = getUltimoAcesso();
+  marcarItensNovos(ultimoAcessoOffline);
+  marcarAcessoAgora();
+  precomputeAreas();
+  document.getElementById('appErrorScreen').classList.add('hidden');
+  document.getElementById('reviewerGate').classList.remove('hidden');
+  initReviewerGate();
+  goToPage('dashboard');
+});
+
+</script>
+
+<script>
+function modeloBadgeHtml(item){
+  return classificarModelo(item) === 'novo'
+    ? `<span class="badge b-teal">${ic('sparkle')} Case estruturado pelo Portal</span>`
+    : `<span class="badge b-gray">Case legado — análise manual</span>`;
+}
+
+/** Os 12 campos de conteúdo do Case (Etapa 2/2B) — usados só para leitura aqui. */
+const CASE_CONTENT_FIELDS = [
+  'case_situacao_motivo','case_situacao_impacto','case_requer_investimento',
+  'case_investimentos_desc','case_como_implementado','case_ferramentas_utilizadas',
+  'case_areas_envolvidas','case_beneficios_obtidos','case_resultados_mensuraveis',
+  'case_cuidados_recomendados','case_pre_requisito','case_materiais_apoio'
+];
+
+/**
+ * Um item tem Case estruturado "de verdade" se PELO MENOS UM dos 12 campos tiver
+ * conteúdo. Cobre com segurança tanto registros legados (campos nem existem no
+ * objeto) quanto Novo Modelo sem Case (campos existem mas vêm vazios do SharePoint) —
+ * os dois casos resultam em `false`, sem lançar erro.
+ */
+function temCaseEstruturado(item){
+  if(!item) return false;
+  return CASE_CONTENT_FIELDS.some(f => String(item[f] || '').trim() !== '');
+}
+
+/* ============================================================
+   REGRA DE NEGÓCIO — elegibilidade para Curadoria (Possui Iniciativa)
+   ============================================================
+   Achado real (Console, produção): 44 registros com Possui Iniciativa = "Não" e
+   Status diferente de "Sem Iniciativa" (21 Pendente + 23 Validada) — chegam à Fila,
+   às contagens de pendências e podiam chegar a Cases mesmo sem nenhuma iniciativa de
+   verdade para analisar, porque a franquia respondeu "Não" no formulário. Decisão da
+   Regi: Status no SharePoint ≠ elegibilidade para Curadoria — a elegibilidade
+   operacional (Fila, Cases, Consultar Iniciativas, contagens de pendência) considera
+   OBRIGATORIAMENTE o que a própria franquia respondeu em "Possui Iniciativa", e não só
+   o campo Status. Não altera o Status no SharePoint (fica como está na origem) — é uma
+   regra só de leitura/filtro, aplicada em tempo real no front-end. RAW_DATA continua
+   com os 44 registros; eles seguem contando nos indicadores gerais (Total de
+   Respostas, % Com/Sem Iniciativa) — só saem do FLUXO OPERACIONAL de curadoria/Cases.
+   ============================================================ */
+
+/**
+ * true somente quando a franquia respondeu explicitamente "Sim" para "Possui
+ * Iniciativa". Qualquer outra coisa — "Não", vazio, null, ou um valor fora do
+ * esperado — é tratada como "não é Sim" (lado seguro: elegibilidade exige um "Sim"
+ * reconhecível, nunca o contrário). Mesmo padrão de comparação (tolerante a
+ * maiúscula/minúscula) já usado em dashboardStats() e na tela de Indicadores.
+ * Um valor que não bate nem com "sim" nem com "não" é registrado no console (só
+ * diagnóstico, nunca visível ao usuário) para não desaparecer sem rastro.
+ */
+function possuiIniciativaRespondida(item){
+  const bruto = (item && item.possui_iniciativa) || '';
+  const v = bruto.toLowerCase().trim();
+  if(v.startsWith('sim')) return true;
+  if(v === '' || v.startsWith('não') || v.startsWith('nao')) return false;
+  console.error('[elegivelParaCuradoria] Valor inesperado em possui_iniciativa (tratado como "não Sim")', {
+    id: item && item.id, nome: item && item.nome, valor_bruto: bruto,
+  });
+  return false;
+}
+
+/**
+ * true quando o registro deve ser tratado como "Sem Iniciativa" para fins de fluxo
+ * operacional — verdadeiro tanto para o Status já gravado como "Sem Iniciativa" no
+ * SharePoint quanto para qualquer registro em que a franquia não respondeu "Sim" para
+ * Possui Iniciativa, mesmo que o Status ainda diga "Pendente" ou "Validada" na origem.
+ */
+function tratarComoSemIniciativa(item){
+  if(!item) return true;
+  if(item.status === 'Sem Iniciativa') return true;
+  return !possuiIniciativaRespondida(item);
+}
+
+/**
+ * Fonte única de verdade sobre "este registro deve entrar no fluxo operacional de
+ * Curadoria?" (Fila de Revisão, contagem de pendências, Consultar Iniciativas, Cases,
+ * "Próximo Case"). Substitui os filtros `status !== 'Sem Iniciativa'` que estavam
+ * duplicados em 6 pontos diferentes do arquivo. Não altera RAW_DATA nem o Status de
+ * nenhum registro — só decide o que aparece nas telas operacionais.
+ */
+function elegivelParaCuradoria(item){
+  return !tratarComoSemIniciativa(item);
+}
+
+/* ============================================================
+   ETAPA 3.1 — Página "Cases" (transição operacional Legado × Novo Modelo)
+   ============================================================
+   Reaproveita EXATAMENTE a mesma noção de "revisado"/"potencial oficial" já
+   usada em statusOf()/renderReviewCard() — sessão local (ValidationRepository)
+   tem precedência, senão usa o valor persistido no SharePoint via normalizeIniciativa.
+   Nada aqui grava dado nenhum — é 100% derivado, recalculado a cada render.
+   ============================================================ */
+
+/** Potencial de Replicação DEFINIDO PELA CURADORIA — nunca a autoavaliação da franquia. */
+function potencialCuradoria(item){
+  const local = ValidationRepository.getById(item.id);
+  if(local) return local.potencial_validado || '';
+  return item.potencial_validado || '';
+}
+
+/**
+ * Rótulo de exibição para o Potencial de Replicação DA CURADORIA. O valor real gravado
+ * é minúsculo/sem acento ("alto","medio","baixo","nao_avaliavel" — ver MASTER.potencialReplicacao,
+ * fonte dos botões da tela de revisão). Isto é só cosmético: a comparação de regra de
+ * negócio em elegivelCaseManual()/elegivelCaseEstruturado() sempre usa o valor cru.
+ */
+const POTENCIAL_CURADORIA_LABEL = { alto: 'Alto', medio: 'Médio', baixo: 'Baixo', nao_avaliavel: 'Não avaliável' };
+function potencialCuradoriaLabel(item){
+  const v = potencialCuradoria(item);
+  return v ? (POTENCIAL_CURADORIA_LABEL[v] || esc(v)) : '';
+}
+
+/**
+ * Categoria Oficial DEFINIDA PELA CURADORIA — mesmo padrão de precedência de
+ * potencialCuradoria() (sessão local primeiro, senão o valor persistido no
+ * SharePoint via normalizeIniciativa). Usada na Identificação da tela de
+ * Construção do Case.
+ */
+function categoriaOficialCuradoria(item){
+  const local = ValidationRepository.getById(item.id);
+  if(local) return local.categoria_validada || '';
+  return item.categoria_validada || '';
+}
+
+/**
+ * Nota de Reconhecimento / Parecer / Revisor DEFINIDOS PELA CURADORIA — mesmo padrão
+ * de precedência das funções acima. Usadas pela tela de Construção do Case para
+ * reenviar, sem alterar, os campos de curadoria já gravados quando o que está sendo
+ * salvo é só o Case (ver ApiService.salvarCuradoria — nunca envia um desses campos
+ * "vazio" por engano, o que arriscaria apagar dado já gravado no SharePoint).
+ */
+function notaCuradoria(item){
+  const local = ValidationRepository.getById(item.id);
+  if(local) return local.potencial_reconhecimento || 0;
+  return item.nota_reconhecimento || 0;
+}
+function parecerCuradoria(item){
+  const local = ValidationRepository.getById(item.id);
+  if(local) return local.parecer_curadoria || '';
+  return item.parecer_curadoria || '';
+}
+function revisorCuradoria(item){
+  const local = ValidationRepository.getById(item.id);
+  if(local) return local.revisor || '';
+  return item.revisor_curadoria || '';
+}
+
+/* ============================================================
+   STATUSCASE — ciclo de vida da REVISÃO do Case, independente do Status geral
+   da iniciativa/curadoria. Backend já grava e devolve StatusCase (Gates 2/3).
+
+   Valores oficiais (decisão do auditor, nunca calculados automaticamente pelo
+   sistema): "Pendente" / "Em validação" / "Pronto para Biblioteca". Quem decide
+   o valor é sempre o auditor, na tela do próprio Case — a Central nunca infere
+   ou avança esse status sozinha como efeito colateral de outra ação.
+   ============================================================ */
+
+/**
+ * Status do Case, para exibição/normalização. Registros sem valor gravado
+ * (histórico anterior à criação do campo, ou iniciativas que nunca entraram na
+ * esteira de Case) são tratados como "Pendente" só na exibição — nunca
+ * sobrescrevemos um valor já existente ("Em validação"/"Pronto para Biblioteca")
+ * de volta para "Pendente" só porque a tela foi reaberta.
+ */
+function statusCaseOf(item){
+  return (item && item.status_case) ? item.status_case : 'Pendente';
+}
+
+/**
+ * Ao concluir a Curadoria da iniciativa (handleSave, modo "validar"), o StatusCase
+ * NÃO é mais decidido automaticamente aqui — quem decide o resultado da revisão do
+ * Case é sempre o auditor, na tela do próprio Case (ver cbStatusCase/cdStatusCase).
+ * Esta função só preserva o valor atual (ou "Pendente" se ainda não existir),
+ * garantindo que o campo sempre seja reenviado com um valor válido.
+ */
+function calcularStatusCaseAoValidar(item){
+  return statusCaseOf(item);
+}
+
+/**
+ * Legado, já validado pela Curadoria (statusOf === 'Validada'), com potencial ALTO
+ * definido pela CURADORIA (não a autoavaliação da franquia) → entra na esteira de
+ * Case Manual. Não coloca automaticamente todo legado — só quem passou pelo crivo.
+ * CORREÇÃO: o valor real salvo pela Curadoria é "alto" (minúsculo, sem acento) — não
+ * "Alto". Comparar com o literal errado fazia esta função nunca bater com nada.
+ */
+function elegivelCaseManual(item){
+  return classificarModelo(item) === 'legado'
+    && statusOf(item.id) === 'Validada'
+    && potencialCuradoria(item) === 'alto';
+}
+
+/**
+ * Novo Modelo com Case preenchido pelo Portal E já validado pela Curadoria (mesma
+ * definição de "Revisada" usada em toda a Central) → entra em "Cases Estruturados
+ * pelo Portal". Decisão explícita da Regi: exigir Validada aqui, mesmo sem existir
+ * ainda um campo de decisão específica do Case (StatusCase/ElegivelParaCase, fora de
+ * escopo) — a validação geral da Curadoria (categoria/potencial/parecer) é o gate
+ * disponível hoje.
+ */
+function elegivelCaseEstruturado(item){
+  return classificarModelo(item) === 'novo'
+    && temCaseEstruturado(item)
+    && statusOf(item.id) === 'Validada';
+}
+
+/**
+ * Novo Modelo com Case preenchido MAS ainda não validado pela Curadoria — o "backlog"
+ * que continua na Fila de Revisão normalmente, só usado para o indicador do Dashboard
+ * (não tem lista própria na página Cases, para não duplicar a Fila de Revisão).
+ */
+function temCaseAguardandoAvaliacao(item){
+  return classificarModelo(item) === 'novo' && temCaseEstruturado(item) && statusOf(item.id) !== 'Validada';
+}
+
+/** Data de cadastro formatada para exibição — nunca lança erro, mesmo com texto inválido. */
+function dataCadastroDisplay(item){
+  const d = parseDataCadastro(item && item.data_hora_cadastro);
+  return d ? d.toLocaleDateString('pt-BR') : (item && item.data_hora_cadastro ? esc(item.data_hora_cadastro) : '—');
+}
+
+/**
+ * Data da Curadoria — SÓ disponível quando o item foi validado NESTA sessão (o
+ * SharePoint/Select ainda não devolve uma data de curadoria persistida). Para itens
+ * validados em sessões anteriores, mostra "—" em vez de inventar uma data.
+ */
+function dataCuradoriaDisplay(item){
+  const local = ValidationRepository.getById(item.id);
+  if(local && local.data_hora){
+    const d = new Date(local.data_hora);
+    return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR');
+  }
+  return '—';
+}
+
+/** Resumo curto (não inventa nada — só corta o texto real do campo). */
+function resumoCurto(texto, max){
+  const t = String(texto || '').trim();
+  if(!t) return '<span style="color:var(--gm);font-style:italic;">Não informado.</span>';
+  return esc(t.length > max ? t.slice(0, max).trim() + '…' : t);
+}
+
+/**
+ * Normaliza um item vindo do fluxo "Buscar Iniciativas" (Lista SharePoint) para o
+ * formato que o resto da Central espera — o mesmo formato que a antiga Fase 1
+ * (análise prévia sobre a planilha) produzia.
+ *
+ * IMPORTANTE: a Lista do SharePoint não tem mais uma "Fase 1" de pré-análise
+ * (categoria sugerida por IA, nível de confiança, tecnologias sugeridas). Em vez
+ * disso, usamos a CATEGORIA QUE A PRÓPRIA FRANQUIA INFORMOU no formulário como
+ * sugestão inicial para o curador — sem nível de confiança, porque essa informação
+ * genuinamente não existe mais. O curador sempre decide a categoria final.
+ */
+function normalizeIniciativa(raw){
+  const tecnologias = (raw.ferramentas_chips || '')
+    .split(',').map(s=>s.trim()).filter(Boolean);
+  return Object.assign({}, raw, {
+    nome: raw.nome_projeto || '(Sem nome informado)',
+    franquia: raw.nome_franquia || '',
+    // Sugestão inicial = categoria que a própria franquia escolheu no formulário.
+    categoria_original: raw.categoria || '',
+    tecnologias_original: tecnologias,
+    // Não existe mais "potencial sugerido" nem "observação de confiança" —
+    // ficam vazios; o curador preenche o potencial do zero na tela de revisão.
+    potencial_original: undefined,
+    observacao_original: '',
+    // Campos de curadoria — só presentes se o item já foi validado e o Select
+    // do fluxo "Buscar Iniciativas" mapeia essas colunas do SharePoint.
+    // Nomes esperados no payload (devem ser adicionados ao Select do Power Automate):
+    //   categoria_oficial   → coluna CategoriaOficial
+    //   potencial_replicacao → coluna PotencialReplicacao
+    //   nota_reconhecimento → coluna NotaReconhecimento
+    //   parecer_curadoria   → coluna ParecerCuradoria
+    //   revisor_curadoria   → coluna Revisor
+    categoria_validada:   raw.categoria_oficial     || null,
+    potencial_validado:   raw.potencial_replicacao  || null,
+    nota_reconhecimento:  raw.nota_reconhecimento   ? Number(raw.nota_reconhecimento) : 0,
+    parecer_curadoria:    raw.parecer_curadoria     || '',
+    revisor_curadoria:    raw.revisor_curadoria     || '',
+    // Campo próprio do ciclo de vida do Case (independente do Status geral de
+    // curadoria). Registros antigos/ainda não tocados vêm null/undefined do
+    // SharePoint — normalizado para exibição como "Pendente" por statusCaseOf().
+    status_case: raw.status_case || null,
+  });
+}
+
+async function initApp(){
+  const loading = document.getElementById('appLoadingScreen');
+  const errorScreen = document.getElementById('appErrorScreen');
+  const errorMsg = document.getElementById('appErrorMsg');
+
+  loading.classList.remove('hidden');
+  errorScreen.classList.add('hidden');
+
+  try {
+    const dados = await ApiService.buscarTodasIniciativas();
+    if(!Array.isArray(dados) || dados.length === 0){
+      throw new Error('O sistema respondeu, mas não retornou nenhuma iniciativa.');
+    }
+    // "id" já vem como número da Lista do SharePoint, mas Number(...) aqui garante
+    // isso mesmo se algum conector devolver como texto.
+    RAW_DATA = dados.map((item) => {
+      const normalizado = normalizeIniciativa(item);
+      normalizado.id = Number(normalizado.id);
+      return normalizado;
+    });
+    // Lê o último acesso salvo ANTES de atualizá-lo — senão todo item deixaria de
+    // parecer "novo" na mesma visita em que apareceu.
+    const ultimoAcesso = getUltimoAcesso();
+    marcarItensNovos(ultimoAcesso);
+    marcarAcessoAgora();
+    precomputeAreas();
+    loading.classList.add('hidden');
+    document.getElementById('reviewerGate').classList.remove('hidden');
+    initReviewerGate();
+    goToPage('dashboard');
+  } catch (err) {
+    console.error('[initApp] Falha ao carregar iniciativas:', err);
+    loading.classList.add('hidden');
+    errorMsg.textContent = 'Não conseguimos carregar os dados agora. Verifique sua conexão e tente novamente. '
+      + 'Se o problema continuar, avise a área responsável.';
+    errorScreen.classList.remove('hidden');
+  }
+}
+
+document.getElementById('appRetryBtn').addEventListener('click', initApp);
+document.getElementById('appOfflineBtn').addEventListener('click', ()=>{
+  if(typeof MOCK_RAW_DATA_FALLBACK === 'undefined' || !MOCK_RAW_DATA_FALLBACK.length){
+    showToast('Não há dados de exemplo disponíveis neste arquivo.');
+    return;
+  }
+  // Mesmo pipeline único de normalização usado em initApp() — nenhuma tela deve
+  // trabalhar com um formato de dado diferente dependendo de como os dados chegaram.
+  RAW_DATA = MOCK_RAW_DATA_FALLBACK.map((item) => {
+    const normalizado = normalizeIniciativa(item);
+    normalizado.id = Number(normalizado.id);
+    return normalizado;
+  });
+  const ultimoAcessoOffline = getUltimoAcesso();
+  marcarItensNovos(ultimoAcessoOffline);
+  marcarAcessoAgora();
+  precomputeAreas();
+  document.getElementById('appErrorScreen').classList.add('hidden');
+  document.getElementById('reviewerGate').classList.remove('hidden');
+  initReviewerGate();
+  goToPage('dashboard');
+});
+
+</script>
+<script>
+/* ============================================================
+   CAMADA DE UI — parte 2: Dashboard Executivo
+   ============================================================ */
+function renderDashboard(){
+  const validations = ValidationRepository.getAllValidations();
+  const stats = ValidationService.dashboardStats(RAW_DATA, validations);
+
+  // Saudação — chips das 5 regionais oficiais em ordem fixa, sempre visíveis.
+  // Regionais com 0 pendências aparecem normalmente (valor 0), para o curador
+  // ter sempre o panorama completo sem depender de quais dados chegaram.
+  const REGIONAIS_OFICIAIS = ['Interior', 'Centro Sul', 'SPMG', 'Equatorial', 'Costa Leste'];
+  const greetingChips = REGIONAIS_OFICIAIS.map(reg => {
+    // stats.porRegional guarda a chave com o prefixo "Regional " — tentamos as duas formas
+    const v = stats.porRegional[`Regional ${reg}`] || stats.porRegional[reg] || 0;
+    return `<span class="g-chip">${v} de ${esc(reg)}</span>`;
+  }).join('');
+
+  document.getElementById('greetingBlock').innerHTML = `
+    <div class="g-hello">Olá, ${esc(AppState.revisor)}.</div>
+    ${stats.pendentes > 0 ? `
+      <h1>Você tem ${stats.pendentes} iniciativa${stats.pendentes===1?'':'s'} pendente${stats.pendentes===1?'':'s'} de validação.</h1>
+      <div class="g-breakdown">${greetingChips}</div>
+      <button class="btn btn-teal btn-xl btn-hero-cta" id="btnIniciarRevisao">${ic('bolt')} Iniciar Revisão</button>
+    ` : `
+      <div class="g-empty">${ic('trophy')} Tudo revisado por aqui — não há iniciativas pendentes no momento.</div>
+    `}
+  `;
+  const btnIniciar = document.getElementById('btnIniciarRevisao');
+  if(btnIniciar) btnIniciar.addEventListener('click', ()=> startReview('proxima_pendente'));
+
+  const qtdNovos = contarItensNovos();
+  // Etapa 3.1 — contagens derivadas (não gravadas) das duas esteiras da página Cases.
+  // Mesmas funções usadas em renderCases(), para os números do Dashboard nunca
+  // divergirem do que a página Cases realmente mostra.
+  const dadosParaModelo = RAW_DATA.filter(elegivelParaCuradoria);
+  const qtdCaseManual = dadosParaModelo.filter(elegivelCaseManual).length;
+  const qtdCaseEstruturado = dadosParaModelo.filter(elegivelCaseEstruturado).length;
+  // "Aguardando avaliação da Curadoria" = tem Case do Portal mas a iniciativa ainda não
+  // foi Validada — não confundir com "aprovado para Case" (esse dado ainda não existe).
+  const qtdCaseAguardandoAvaliacao = dadosParaModelo.filter(temCaseAguardandoAvaliacao).length;
+  const kpis = [
+    [ic('box'), RAW_DATA.length, 'Total de Respostas'],
+    [ic('sparkle'), qtdNovos, 'Novos desde sua última visita'],
+    [ic('trophy'), stats.validadas, 'Revisadas'],
+    [ic('clipboard'), stats.pendentes, 'Pendentes'],
+    [ic('box'), stats.total, 'Total de Iniciativas'],
+    [ic('sparkle'), stats.pctConcluido + '%', 'Concluído'],
+    [ic('question'), stats.necessitaRevisao, 'Necessita Revisão'],
+    [ic('book'), qtdCaseManual, 'Aguardando Case Manual (Legado)'],
+    [ic('briefcase'), qtdCaseEstruturado, 'Cases Estruturados pelo Portal'],
+    [ic('clipboard'), qtdCaseAguardandoAvaliacao, 'Cases aguardando avaliação da Curadoria'],
+  ];
+  document.getElementById('kpiGrid').innerHTML = kpis.map(([icoHtml,val,lab],idx)=>`
+    <div class="card kpi hoverable${idx===1 && qtdNovos>0 ? ' kpi-novo-destaque' : ''}">
+      <div class="icon">${icoHtml}</div>
+      <div class="val">${val}</div>
+      <div class="lab">${lab}</div>
+    </div>`).join('');
+
+  // Validados por Categoria — sempre nas 5 categorias oficiais, em ordem fixa (mesmo
+  // as com 0 validações aparecem, para o curador enxergar rapidamente onde ainda não
+  // há nada validado). A opção de escape só aparece se tiver sido usada.
+  const CATEGORIAS_OFICIAIS = ["Vendas", "Retenção", "Adimplência", "Cashback", "Reputação"];
+  const catValidadasEntries = CATEGORIAS_OFICIAIS.map(c => [c, stats.porCategoriaValidada[c] || 0]);
+  if (stats.porCategoriaValidada['Sem categoria (revisão posterior)']) {
+    catValidadasEntries.push(['Sem categoria (revisão posterior)', stats.porCategoriaValidada['Sem categoria (revisão posterior)']]);
+  }
+  renderBarList('chartValidadosPorCategoria', catValidadasEntries);
+
+  renderFranquiaPorRegional('chartFranquiaPorRegional', stats.porFranquiaPorRegional);
+
+  const ultima = validations.length ? validations.reduce((a,b)=> a.data_hora > b.data_hora ? a : b).data_hora : null;
+  document.getElementById('ultimaAtualizacaoTxt').textContent = ultima
+    ? 'Última validação registrada: ' + new Date(ultima).toLocaleString('pt-BR')
+    : 'Nenhuma validação registrada ainda nesta sessão.';
+}
+
+function renderBarList(containerId, entries){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  if(!entries.length){ el.innerHTML = '<div style="font-size:12.5px;color:var(--gm);">Nenhum dado pendente nesta categoria.</div>'; return; }
+  const max = Math.max(...entries.map(e=>e[1]), 1);
+  el.innerHTML = entries.map(([label,val])=>{
+    const pct = Math.max((val/max*100),2);
+    return `<div class="bar-row">
+      <div class="blabel" title="${esc(label)}">${esc(label)}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
+      <div class="bar-val">${val}</div>
+    </div>`;
+  }).join('');
+}
+
+/**
+ * Renderiza o dashboard "Pendências por Franquia em cada Regional": uma lista
+ * colapsável (uma <details> por Regional), ordenada pela Regional com mais
+ * pendências primeiro, e dentro de cada uma as franquias também ordenadas por
+ * quantidade de pendências (maior primeiro).
+ */
+function renderFranquiaPorRegional(containerId, porFranquiaPorRegional){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+
+  const semRegional = RAW_DATA.filter(d => !d.regional || d.regional.trim() === '');
+  if(semRegional.length){
+    console.warn('[Central] Itens sem regional:');
+    semRegional.forEach(d => console.warn(`  ID:${d.id} | "${d.franquia||'—'}" | "${d.nome||'—'}"`));
+  }
+  const avisoHtml = semRegional.length ? `
+    <div style="background:#FBE4E4;border:1px solid #e57373;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12.5px;color:#B33636;">
+      <strong>${ic('info')} ${semRegional.length} iniciativa${semRegional.length>1?'s':''} sem regional</strong> — IDs:
+      <div style="margin-top:6px;display:flex;flex-direction:column;gap:2px;">
+        ${semRegional.map(d=>`<span>ID <strong>${d.id}</strong> — <em>${esc(d.franquia||'Sem franquia')}</em></span>`).join('')}
+      </div>
+    </div>` : '';
+
+  const labelOficial = {};
+  CADASTRO_OFICIAL.forEach(([,nome]) => { labelOficial[normalizaFranquia(nome)] = nome; });
+
+  const regionais = Object.entries(porFranquiaPorRegional)
+    .filter(([reg]) => reg && reg !== 'Sem regional')
+    .map(([regional, buckets]) => {
+      const oficiais = Object.entries(buckets.oficiais || {}).sort((a,b) => b[1].total - a[1].total);
+      const naoId    = Object.entries(buckets.naoId    || {}).sort((a,b) => b[1].total - a[1].total);
+      // totReg inclui TODAS as iniciativas da regional — identificadas E não identificadas.
+      // Excluir as naoId causaria incompatibilidade com os indicadores da página de Indicadores.
+      const totReg   = oficiais.reduce((s,[,v]) => s + v.total, 0)
+                     + naoId.reduce((s,[,v]) => s + v.total, 0);
+      return { regional, oficiais, naoId, totReg, qtdOfic: oficiais.length, qtdNaoId: naoId.length };
+    })
+    .sort((a,b) => b.qtdOfic - a.qtdOfic);
+
+  if(!regionais.length){
+    el.innerHTML = avisoHtml + '<div style="font-size:12.5px;color:var(--gm);">Nenhum dado disponível.</div>';
+    return;
+  }
+
+  el.innerHTML = avisoHtml + regionais.map(({regional, oficiais, naoId, totReg, qtdOfic, qtdNaoId}) => {
+
+    const rowsOficiais = oficiais.map(([normNome, v]) => {
+      const label = labelOficial[normNome] || normNome;
+      return `<tr><td>${esc(label)}</td><td class="num ${v.total===0?'zero':''}">${v.total}</td></tr>`;
+    }).join('');
+
+    const rowsNaoId = naoId.map(([nome, v]) =>
+      `<tr><td>${esc(nome)}</td><td class="num">${v.total}</td></tr>`
+    ).join('');
+
+    const secNaoId = naoId.length ? `
+      <div class="fra-subcat-title nao-id">${ic('question')} Nome da franquia necessita validação (${qtdNaoId})</div>
+      <table class="fra-table">
+        <thead><tr><th>Nome cadastrado</th><th class="num">Iniciativas</th></tr></thead>
+        <tbody>${rowsNaoId}</tbody>
+      </table>` : '';
+
+    return `<details class="regional-group">
+      <summary>
+        <span>${esc(regional)}</span>
+        <span class="rg-summary-chips">
+          <span class="rg-chip-stat rg-chip-total">${qtdOfic} franquias</span>
+          <span class="rg-chip-stat rg-chip-val">${totReg} iniciativas</span>
+        </span>
+      </summary>
+      <div class="fra-subcat-title">Franquias (${qtdOfic})</div>
+      <table class="fra-table">
+        <thead><tr><th>Franquia</th><th class="num">Iniciativas</th></tr></thead>
+        <tbody>${rowsOficiais}</tbody>
+      </table>
+      ${secNaoId}
+    </details>`;
+  }).join('');
+}
+</script>
+<script>
+/* ============================================================
+   CAMADA DE UI — Tela de Curadoria (redesenhada)
+   ============================================================
+   Mudança de conceito desta rodada: a Central não edita iniciativas,
+   ela faz CURADORIA institucional. O revisor só: lê, classifica em
+   categoria, define benefício principal, avalia potencial de
+   replicação, atribui nota de reconhecimento e registra parecer.
+
+   Removido nesta rodada (não existe mais na tela):
+   - Situação da Classificação / Baixa-Média-Alta confiança
+   - Botões Aceitar/Alterar
+   - Edição de tecnologias (chips, adicionar, remover)
+   - Status da Classificação (Pendente/Revisada/Aprovada.../etc.)
+   Tecnologias agora aparecem só como leitura, dentro do Bloco 1.
+   ============================================================ */
+
+function startReview(){
+  AppState.viewingAdHoc = false; // garante que não fica preso num item avulso anterior
+  goToPage('revisao'); // goToPage já recalcula a fila do zero (primeira pendente)
+}
+
+/**
+ * Fonte única de verdade para "quais iniciativas estão pendentes de curadoria" — usa a
+ * MESMA base e o MESMO cálculo de status (statusOf) que Consultar Iniciativas usa para
+ * exibir o status de cada card. Não existe uma segunda lógica de fila: Fila de Revisão
+ * e Consultar Iniciativas sempre concordam sobre o que é "Pendente", porque usam
+ * exatamente a mesma função. Determinístico:
+ *   RAW_DATA normalizado → elegivelParaCuradoria (Possui Iniciativa = Sim)
+ *   → filtrar Status = Pendente → primeira posição = próxima a abrir.
+ */
+function getIniciativasPendentes(){
+  return RAW_DATA
+    .filter(elegivelParaCuradoria)
+    .filter(d => statusOf(d.id) === 'Pendente');
+}
+
+/**
+ * Monta a Fila de Revisão e abre automaticamente a primeira iniciativa Pendente.
+ * Recalculada do zero toda vez que é chamada (getIniciativasPendentes()) — nunca
+ * depende de uma fila montada anteriormente, de índice guardado, de clique anterior em
+ * Consultar Iniciativas, nem de qualquer outro estado deixado por outra tela.
+ */
+async function buildQueueAndRender(){
+  document.getElementById('reviewTopbar').innerHTML = '';
+  AppState.currentQueue = getIniciativasPendentes();
+  if(AppState.currentQueue.length) renderReviewCard(); else renderReviewEmpty();
+}
+
+function renderReviewEmpty(){
+  document.getElementById('reviewTopbar').innerHTML = '';
+  document.getElementById('reviewShell').innerHTML = `
+    <div class="card" style="padding:50px 30px;text-align:center;">
+      <div style="font-size:2rem;margin-bottom:14px;">🎉</div>
+      <h3 style="color:var(--pd);margin-bottom:8px;">Fila de revisão concluída</h3>
+      <p style="color:var(--gm);font-size:13px;">Não há iniciativas pendentes para revisão neste momento.</p>
+    </div>`;
+}
+
+/** Item atual da Fila: sempre currentQueue[0] (a primeira pendente) — não existe mais
+ * navegação por índice. Item avulso (Consultar Iniciativas) continua em estado separado. */
+function currentItem(){
+  if(AppState.viewingAdHoc) return AppState.adHocItem;
+  return AppState.currentQueue ? AppState.currentQueue[0] : undefined;
+}
+
+/**
+ * Texto para os blocos de descrição de largura total.
+ *
+ * CORREÇÃO (achado ao investigar um relato de "erro" na Fila de Revisão): esta função
+ * antes mostrava, para QUALQUER campo vazio, uma mensagem fixa afirmando que "a
+ * planilha original já continha um erro de fórmula nesta célula". Essa mensagem foi
+ * escrita para 2 casos pontuais conhecidos (linhas antigas "CVORTEX" e "ANÁLISE DE
+ * DADOS"), mas o código nunca chegou a diferenciar esses 2 casos do restante — ela
+ * aparecia (incorretamente) para QUALQUER iniciativa com o campo em branco, inclusive
+ * iniciativas legítimas em que a franquia simplesmente respondeu "Não" para "Possui
+ * Iniciativa" e por isso não preencheu objetivo/ferramentas/indicadores/benefícios.
+ * Isso não é um erro de carregamento — o valor realmente não existe na origem — mas a
+ * mensagem antiga afirmava algo factualmente errado sobre a causa. Agora mostra o
+ * mesmo texto neutro "Não informado." usado em blocoDetalhe() para o mesmo cenário.
+ */
+function descText(value){
+  if(value === '' || value === null || value === undefined){
+    return '<span style="color:var(--gm);font-style:italic;">Não informado.</span>';
+  }
+  return esc(value);
+}
+
+function statusReviewLabel(id){
+  const v = ValidationRepository.getById(id);
+  return v ? v.status : 'Pendente';
+}
+
+/**
+ * Renderização "crua" do card da Fila de Revisão — pode lançar exceção se algum
+ * registro vier com um formato inesperado. NUNCA chamar diretamente fora deste
+ * arquivo: use sempre renderReviewCard() (wrapper defensivo logo abaixo), que
+ * protege a Fila inteira contra um único registro ruim.
+ */
+function renderReviewCardUnsafe(){
+  const item = currentItem();
+  if(!item){ renderReviewEmpty(); return; }
+
+  const existing = ValidationRepository.getById(item.id);
+  // Para itens já validados em sessões anteriores, o repositório local está vazio.
+  // Usamos os campos de curadoria que chegaram diretamente do SharePoint (via normalizeIniciativa).
+  const draft = existing ? {
+    categoria: existing.categoria_validada,
+    potencial: existing.potencial_validado,
+    nota: existing.potencial_reconhecimento || 0,
+    parecer: existing.parecer_curadoria || '',
+    revisor: existing.revisor || '',
+  } : {
+    categoria: item.categoria_validada || item.categoria_original || '',
+    potencial: item.potencial_validado  || '',
+    nota:      item.nota_reconhecimento || 0,
+    parecer:   item.parecer_curadoria   || '',
+    revisor:   item.revisor_curadoria   || '',
+  };
+  AppState.currentDraft = draft;
+
+  document.getElementById('reviewTopbar').innerHTML = `
+    <div class="review-progress-txt">Iniciativa ${item.id} de ${RAW_DATA.length}</div>
+    <div class="review-progress-txt">${esc(AppState.revisor)}</div>
+  `;
+
+  document.getElementById('reviewShell').innerHTML = `
+    <div class="review-card">
+      <div class="review-card-head">
+        <div class="rc-eyebrow">Iniciativa ${item.id} de ${RAW_DATA.length}</div>
+        <h2>${esc(item.nome)}</h2>
+        <div class="rc-meta">
+          <span>${esc(item.franquia)}</span><span>·</span><span>${esc(item.regional)}</span>
+          <span>·</span><span>Status: ${esc(statusReviewLabel(item.id))}</span>
+          <span>·</span>${modeloBadgeHtml(item)}
+        </div>
+      </div>
+      <div class="review-card-body">
+
+        <div class="block1-wrap">
+          <div class="block-title block1-title">${ic('book')} Informações Enviadas pela Franquia</div>
+
+          <div class="ro-group-title">Identificação</div>
+          <div class="block1-grid">
+            <div class="ro-field"><div class="ro-k">Regional</div><div class="ro-v">${esc(item.regional)}</div></div>
+            <div class="ro-field"><div class="ro-k">Estado</div><div class="ro-v">${esc(item.estado)}</div></div>
+            <div class="ro-field"><div class="ro-k">Cidade</div><div class="ro-v">${esc(item.cidade)}</div></div>
+            <div class="ro-field"><div class="ro-k">Nome da Franquia</div><div class="ro-v">${esc(item.franquia)}</div></div>
+            <div class="ro-field"><div class="ro-k">Tipo da Franquia</div><div class="ro-v">${esc(item.tipo_franquia)}</div></div>
+            <div class="ro-field"><div class="ro-k">Tempo de Operação</div><div class="ro-v">${esc(item.tempo_operacao)}</div></div>
+            <div class="ro-field"><div class="ro-k">Maturidade Digital</div><div class="ro-v">${esc(item.maturidade_digital)}</div></div>
+          </div>
+
+          <div class="ro-group-title">Informações da Iniciativa</div>
+          <div class="block1-grid">
+            <div class="ro-field"><div class="ro-k">Possui Iniciativas?</div><div class="ro-v">${esc(item.possui_iniciativa)}</div></div>
+            <div class="ro-field"><div class="ro-k">Nome do Projeto</div><div class="ro-v">${esc(item.nome)}</div></div>
+            <div class="ro-field"><div class="ro-k">Categoria Informada pela Franquia</div><div class="ro-v">${esc(item.categoria)}</div></div>
+            <div class="ro-field"><div class="ro-k">Status Atual</div><div class="ro-v">${esc(item.status_atual)}</div></div>
+            <div class="ro-field"><div class="ro-k">Indicador Operacional Impactado</div><div class="ro-v">${esc(item.area_impactada)}</div></div>
+            <div class="ro-field"><div class="ro-k">Próximo Estágio</div><div class="ro-v">${esc(item.proximo_estagio)}</div></div>
+            <div class="ro-field"><div class="ro-k">Potencial de Replicação <span style="font-weight:400;color:var(--gm);">(autoavaliação da franquia)</span></div><div class="ro-v">${esc(item.potencial_replicacao_franquia)}</div></div>
+          </div>
+          <div class="ro-full"><div class="ro-full-k">Objetivo do Projeto</div><div class="ro-full-v">${descText(item.objetivo)}</div></div>
+
+          <div class="ro-group-title">Tecnologias</div>
+          <div class="block1-grid">
+            <div class="ro-field"><div class="ro-k">Ferramentas (seleção)</div><div class="ro-v">${esc(item.ferramentas_chips)}</div></div>
+          </div>
+          <div class="ro-full"><div class="ro-full-k">Descrição das Ferramentas</div><div class="ro-full-v">${descText(item.ferramentas_desc)}</div></div>
+
+          <div class="ro-group-title">Indicadores</div>
+          <div class="block1-grid">
+            <div class="ro-field"><div class="ro-k">Indicadores (seleção)</div><div class="ro-v">${esc(item.indicadores_chips)}</div></div>
+          </div>
+          <div class="ro-full"><div class="ro-full-k">Descrição dos Indicadores</div><div class="ro-full-v">${descText(item.indicadores_desc)}</div></div>
+
+          <div class="ro-group-title">Benefícios</div>
+          <div class="block1-grid">
+            <div class="ro-field"><div class="ro-k">Benefícios (seleção)</div><div class="ro-v">${esc(item.beneficios_chips)}</div></div>
+          </div>
+          <div class="ro-full"><div class="ro-full-k">Descrição dos Benefícios</div><div class="ro-full-v">${descText(item.beneficios_desc)}</div></div>
+
+          <div class="ro-group-title">Responsável</div>
+          <div class="block1-grid">
+            <div class="ro-field"><div class="ro-k">Responsável Principal</div><div class="ro-v">${esc(item.responsavel)}</div></div>
+            <div class="ro-field"><div class="ro-k">E-mail</div><div class="ro-v">${esc(item.responsavel_email)}</div></div>
+            <div class="ro-field"><div class="ro-k">WhatsApp</div><div class="ro-v">${esc(item.responsavel_whatsapp)}</div></div>
+          </div>
+        </div>
+
+        ${classificarModelo(item) === 'novo' ? `
+        <div class="block1-wrap" style="margin-top:18px;">
+          <div class="block-title block1-title">${ic('briefcase')} Case Estruturado pelo Portal <span style="font-size:11px;font-weight:600;color:var(--gm);text-transform:none;">(preenchido pela própria franquia no cadastro — a Curadoria continua decidindo)</span></div>
+          ${temCaseEstruturado(item) ? `
+            <div class="ro-group-title">Situação</div>
+            <div class="ro-full"><div class="ro-full-k">Qual situação motivou a iniciativa?</div><div class="ro-full-v">${descText(item.case_situacao_motivo)}</div></div>
+            <div class="ro-full"><div class="ro-full-k">Como essa situação impactava a operação?</div><div class="ro-full-v">${descText(item.case_situacao_impacto)}</div></div>
+            <div class="block1-grid">
+              <div class="ro-field"><div class="ro-k">Requer investimentos?</div><div class="ro-v">${esc(item.case_requer_investimento)}</div></div>
+            </div>
+            <div class="ro-full"><div class="ro-full-k">Quais investimentos são necessários?</div><div class="ro-full-v">${descText(item.case_investimentos_desc)}</div></div>
+
+            <div class="ro-group-title">Implantação</div>
+            <div class="ro-full"><div class="ro-full-k">Como a iniciativa foi implementada?</div><div class="ro-full-v">${descText(item.case_como_implementado)}</div></div>
+            <div class="block1-grid">
+              <div class="ro-field"><div class="ro-k">Ferramentas utilizadas</div><div class="ro-v">${esc(item.case_ferramentas_utilizadas)}</div></div>
+              <div class="ro-field"><div class="ro-k">Áreas envolvidas</div><div class="ro-v">${esc(item.case_areas_envolvidas)}</div></div>
+            </div>
+
+            <div class="ro-group-title">Resultados</div>
+            <div class="ro-full"><div class="ro-full-k">Principais benefícios obtidos</div><div class="ro-full-v">${descText(item.case_beneficios_obtidos)}</div></div>
+            <div class="ro-full"><div class="ro-full-k">Resultados mensuráveis</div><div class="ro-full-v">${item.case_resultados_mensuraveis ? esc(item.case_resultados_mensuraveis) : '<span style="color:var(--gm);font-style:italic;">Não informado.</span>'}</div></div>
+
+            <div class="ro-group-title">Recomendações para Replicação</div>
+            <div class="ro-full"><div class="ro-full-k">Quais cuidados outra franquia deve ter?</div><div class="ro-full-v">${descText(item.case_cuidados_recomendados)}</div></div>
+            <div class="ro-full"><div class="ro-full-k">Existe algum pré-requisito importante?</div><div class="ro-full-v">${descText(item.case_pre_requisito)}</div></div>
+
+            ${item.case_materiais_apoio ? `
+            <div class="ro-group-title">Materiais de Apoio</div>
+            <div class="ro-full"><div class="ro-full-v">${esc(item.case_materiais_apoio)}</div></div>
+            ` : ''}
+          ` : `
+            <div class="ro-full"><div class="ro-full-v" style="color:var(--gm);font-style:italic;">
+              ${item.potencial_replicacao_franquia === 'Alto'
+                ? '⚠️ Esta iniciativa foi marcada pela franquia com potencial de replicação Alto, mas os dados de Case ainda não estão disponíveis nesta tela. Não preencha nem estime essas informações — trate como incompleto (pode ser necessário retornar o contato com a franquia ou verificar se o Case foi realmente preenchido no Portal).'
+                : 'Não há Case estruturado disponível para leitura — a franquia não indicou potencial de replicação Alto para esta iniciativa no cadastro.'}
+            </div></div>
+          `}
+        </div>
+        ` : ''}
+
+        <div class="block2-wrap">
+          <div class="block-title block2-title">${ic('target')} Curadoria da Iniciativa</div>
+          <div id="validationErrors"></div>
+
+          ${statusOf(item.id) === 'Validada' ? `
+            <div id="curadoriaReadView">
+              <div class="ro-group-title">Classificação definida na curadoria</div>
+              <div class="block1-grid">
+                <div class="ro-field"><div class="ro-k">Categoria Oficial</div><div class="ro-v">${esc(draft.categoria || '—')}</div></div>
+                <div class="ro-field"><div class="ro-k">Potencial de Replicação</div><div class="ro-v">${esc(draft.potencial || '—')}</div></div>
+                <div class="ro-field"><div class="ro-k">Nota de Reconhecimento</div><div class="ro-v">${draft.nota ? '★'.repeat(draft.nota) + ' (' + draft.nota + '/5)' : '—'}</div></div>
+                ${draft.revisor ? `<div class="ro-field"><div class="ro-k">Curador</div><div class="ro-v">${esc(draft.revisor)}</div></div>` : ''}
+              </div>
+              <div class="ro-full" style="margin-top:10px;"><div class="ro-full-k">Parecer da Curadoria</div><div class="ro-full-v">${draft.parecer ? esc(draft.parecer) : '<span style="color:var(--gm);font-style:italic;">Nenhum parecer registrado.</span>'}</div></div>
+              <div style="margin-top:18px;">
+                <button class="btn btn-ghost btn-sm" id="btnAbrirEdicao">${ic('wrench')} Editar curadoria</button>
+              </div>
+            </div>
+            <div id="curadoriaEditView" style="display:none;">
+          ` : `<div id="curadoriaEditView">`}
+
+            <div class="review-block">
+              <div class="rb-label">Categoria Definida pela Curadoria <span class="req-star">*</span></div>
+              <select class="edit-select" id="fldCategoria" style="max-width:100%;">
+                <option value="">Selecione...</option>
+                ${MASTER.categorias.map(c=>`<option value="${esc(c)}" ${c===draft.categoria?'selected':''}>${esc(c)}</option>`).join('')}
+              </select>
+            </div>
+
+            <div class="review-block">
+              <div class="rb-label">Potencial de Replicação <span class="req-star">*</span></div>
+              <div class="radio-pill-row" id="fldPotencial">
+                ${MASTER.potencialReplicacao.map(p=>`<button type="button" class="radio-pill ${draft.potencial===p.v?'on':''}" data-val="${esc(p.v)}">${esc(p.t)}</button>`).join('')}
+              </div>
+            </div>
+
+            <div class="review-block">
+              <div class="rb-label">Potencial para Reconhecimento <span class="req-star">*</span></div>
+              <div class="star-row" id="starRow">
+                ${[1,2,3,4,5].map(n=>`<span class="star ${n<=draft.nota?'on':''}" data-n="${n}">★</span>`).join('')}
+              </div>
+              <div class="star-legend" id="starLegend">${draft.nota ? MASTER.reconhecimentoLegenda[draft.nota] : 'Selecione de 1 a 5 estrelas.'}</div>
+            </div>
+
+            <div class="review-block">
+              <div class="rb-label">Indicadores Qualitativos<span class="rb-hint">selecione de 1 a 3 — o texto é inserido nas observações abaixo, e pode ser editado livremente lá</span></div>
+              <div class="tech-chip-grid" id="qualiChipGrid">
+                ${MASTER.indicadoresQualitativos.map((q,i)=>`<span class="tech-chip" data-idx="${i}">${esc(q.t)}</span>`).join('')}
+              </div>
+            </div>
+
+            <div class="review-block">
+              <div class="rb-label">Observações do Parecer da Curadoria + Objetivos Qualitativos <span class="req-star">*</span><span class="rb-hint">motivo da categoria, resultados alcançados, objetivos qualitativos (engajamento, reconhecimento, experiência do cliente, etc.), justificativa da nota</span></div>
+              <textarea class="obs-field" id="fldParecer" placeholder="Registre aqui a justificativa da classificação, os resultados alcançados e os objetivos qualitativos observados...">${esc(draft.parecer === '—' ? '' : draft.parecer)}</textarea>
+            </div>
+
+          </div><!-- /curadoriaEditView -->
+        </div>
+      </div>
+      <div class="review-actions">
+        <div class="ra-left"></div>
+        <div class="ra-right">
+          <button class="btn btn-ghost btn-sm" id="btnSalvarRascunho">Salvar</button>
+          <button class="btn btn-primary btn-sm" id="btnValidar">${ic('trophy')} Concluir Curadoria</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  bindRadioGroup('fldPotencial', (v)=> draft.potencial = v);
+
+  // Botão "Editar curadoria" — só existe quando o item já está Validado (modo leitura)
+  const btnAbrirEdicao = document.getElementById('btnAbrirEdicao');
+  if(btnAbrirEdicao){
+    btnAbrirEdicao.addEventListener('click', ()=>{
+      document.getElementById('curadoriaReadView').style.display = 'none';
+      document.getElementById('curadoriaEditView').style.display = '';
+    });
+  }
+
+  document.getElementById('starRow').querySelectorAll('.star').forEach(star=>{
+    star.addEventListener('click', ()=>{
+      draft.nota = parseInt(star.dataset.n, 10);
+      document.getElementById('starRow').querySelectorAll('.star').forEach(s=>{
+        s.classList.toggle('on', parseInt(s.dataset.n,10) <= draft.nota);
+      });
+      document.getElementById('starLegend').textContent = MASTER.reconhecimentoLegenda[draft.nota];
+    });
+  });
+
+  // Indicadores Qualitativos — clicar insere "Nome: descrição" no final das observações
+  // (Não remove texto ao desmarcar, pois o campo pode já ter sido editado manualmente.)
+  const qualiGrid = document.getElementById('qualiChipGrid');
+  qualiGrid.querySelectorAll('.tech-chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      const jaSelecionados = qualiGrid.querySelectorAll('.tech-chip.on').length;
+      const estaSelecionado = chip.classList.contains('on');
+      if(!estaSelecionado && jaSelecionados >= 3){
+        showToast('Selecione no máximo 3 indicadores qualitativos.');
+        return;
+      }
+      chip.classList.toggle('on');
+      if(chip.classList.contains('on')){
+        const item = MASTER.indicadoresQualitativos[parseInt(chip.dataset.idx,10)];
+        const textarea = document.getElementById('fldParecer');
+        const linha = item.d ? `${item.t}: ${item.d}` : `${item.t}: `;
+        const textoAtual = textarea.value.trim();
+        const cabecalhoJaExiste = textoAtual.includes('Indicadores Qualitativos:');
+        let novoTrecho = cabecalhoJaExiste ? linha : `Indicadores Qualitativos:\n${linha}`;
+        textarea.value = textoAtual ? (textoAtual + '\n' + novoTrecho) : novoTrecho;
+        if(!item.d) textarea.focus(); // "Outro" — deixa o cursor pronto pra completar
+      }
+    });
+  });
+
+  document.getElementById('btnSalvarRascunho').addEventListener('click', ()=> handleSave('draft'));
+  document.getElementById('btnValidar').addEventListener('click', ()=> handleSave('validar'));
+}
+
+/**
+ * Wrapper defensivo em torno de renderReviewCardUnsafe() (pedido da Regi — proteção
+ * por registro na Fila de Revisão). Um único registro com formato inesperado nunca
+ * pode deixar a tela em branco/quebrada: se a renderização falhar, o erro completo é
+ * registrado SÓ no console (nunca mostrado ao usuário, nunca escondido/engolido — só
+ * silencioso do ponto de vista da interface) e a Fila avança automaticamente para a
+ * próxima iniciativa, até o limite de itens da fila. Se todos os itens restantes
+ * falharem, cai na tela "Nenhuma iniciativa pendente" em vez de travar.
+ */
+function renderReviewCard(){
+  if(AppState.viewingAdHoc){
+    // Item avulso (aberto a partir de "Consultar Iniciativas") — não existe "próximo"
+    // para pular automaticamente aqui; se falhar, mostra a tela vazia em vez de
+    // arriscar navegar a fila real sem o revisor ter pedido.
+    try {
+      renderReviewCardUnsafe();
+    } catch (err) {
+      const item = currentItem();
+      console.error('[FILA DE REVISÃO — ERRO DE RENDERIZAÇÃO]', {
+        id: item && item.id, projeto: item && item.nome,
+        funcao: 'renderReviewCardUnsafe', erro: err, registroCompleto: item,
+      });
+      renderReviewEmpty();
+    }
+    return;
+  }
+
+  // Sempre tenta renderizar currentQueue[0] ("a primeira pendente"). Se falhar, remove
+  // só esse registro da fila local (nunca do RAW_DATA) e tenta o novo primeiro — assim,
+  // sem depender de nenhum índice, até a fila esvaziar ou uma renderização funcionar.
+  while (AppState.currentQueue && AppState.currentQueue.length){
+    const item = AppState.currentQueue[0];
+    try {
+      renderReviewCardUnsafe();
+      return; // renderizou com sucesso
+    } catch (err) {
+      console.error('[FILA DE REVISÃO — ERRO DE RENDERIZAÇÃO]', {
+        id: item && item.id, projeto: item && item.nome,
+        funcao: 'renderReviewCardUnsafe', erro: err, registroCompleto: item,
+      });
+      AppState.currentQueue = AppState.currentQueue.slice(1); // tenta a próxima
+    }
+  }
+  renderReviewEmpty(); // fila vazia (ou toda ela falhou) — não trava, mostra a tela vazia
+}
+
+function bindRadioGroup(containerId, onChange){
+  const el = document.getElementById(containerId);
+  el.querySelectorAll('.radio-pill').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      el.querySelectorAll('.radio-pill').forEach(b=>b.classList.remove('on'));
+      btn.classList.add('on');
+      onChange(btn.dataset.val);
+    });
+  });
+}
+
+/** Valida os 5 campos obrigatórios da Curadoria. Retorna lista de erros (vazia = ok). */
+function validateDraft(draft){
+  const erros = [];
+  if(!draft.categoria) erros.push('Selecione a Categoria.');
+  if(!draft.potencial) erros.push('Selecione o Potencial de Replicação.');
+  if(!draft.nota) erros.push('Atribua o Potencial para Reconhecimento (1 a 5 estrelas).');
+  if(!draft.parecer || !draft.parecer.trim()) erros.push('Escreva as Observações do Parecer da Curadoria + Objetivos Qualitativos.');
+  return erros;
+}
+
+async function handleSave(mode){
+  const item = currentItem();
+  const draft = AppState.currentDraft;
+  draft.parecer = document.getElementById('fldParecer').value.trim();
+  draft.categoria = document.getElementById('fldCategoria').value;
+
+  if(mode === 'validar'){
+    const erros = validateDraft(draft);
+    if(erros.length){
+      document.getElementById('validationErrors').innerHTML = `
+        <div class="validation-banner">
+          <div class="vb-title">${ic('question')} Não é possível concluir — preencha os campos abaixo:</div>
+          <ul>${erros.map(e=>`<li>${e}</li>`).join('')}</ul>
+        </div>`;
+      document.getElementById('validationErrors').scrollIntoView({behavior:'smooth', block:'start'});
+      return;
+    }
+  }
+
+  const status = mode === 'validar' ? 'Validada' : 'Em revisão';
+  const record = ValidationService.buildValidationRecord(item, draft, AppState.revisor, status);
+
+  if(mode === 'validar'){
+    const btnValidar = document.getElementById('btnValidar');
+    btnValidar.disabled = true;
+    btnValidar.textContent = 'Salvando…';
+    // StatusCase: não é mais decidido aqui — só preserva o valor atual (o auditor
+    // decide o resultado da revisão do Case na tela do próprio Case). Ver
+    // calcularStatusCaseAoValidar().
+    const novoStatusCase = calcularStatusCaseAoValidar(item);
+    try {
+      // Envia o JSON de curadoria para o backend, que grava na Lista "Iniciativas".
+      // Os 12 campos de Case vêm do próprio "item" (valor atual, já persistido) —
+      // esta tela não os edita, então eles precisam ir inalterados, nunca vazios
+      // (ver comentário em ApiService.salvarCuradoria).
+      await ApiService.salvarCuradoria({
+        id: item.id,
+        categoria: draft.categoria, potencial: draft.potencial,
+        nota: draft.nota, parecer: draft.parecer, revisor: AppState.revisor,
+        status_case: novoStatusCase,
+        case_situacao_motivo: item.case_situacao_motivo,
+        case_situacao_impacto: item.case_situacao_impacto,
+        case_requer_investimento: item.case_requer_investimento,
+        case_investimentos_desc: item.case_investimentos_desc,
+        case_como_implementado: item.case_como_implementado,
+        case_ferramentas_utilizadas: item.case_ferramentas_utilizadas,
+        case_areas_envolvidas: item.case_areas_envolvidas,
+        case_beneficios_obtidos: item.case_beneficios_obtidos,
+        case_resultados_mensuraveis: item.case_resultados_mensuraveis,
+        case_cuidados_recomendados: item.case_cuidados_recomendados,
+        case_pre_requisito: item.case_pre_requisito,
+        case_materiais_apoio: item.case_materiais_apoio,
+      });
+    } catch (err) {
+      console.error('[handleSave] Falha ao enviar curadoria:', err);
+      document.getElementById('validationErrors').innerHTML = `
+        <div class="validation-banner">
+          <div class="vb-title">${ic('question')} Não foi possível salvar agora</div>
+          <ul><li>Nada foi registrado ainda. Verifique sua conexão e tente novamente.</li></ul>
+        </div>`;
+      document.getElementById('validationErrors').scrollIntoView({behavior:'smooth', block:'start'});
+      btnValidar.disabled = false;
+      btnValidar.innerHTML = ic('trophy') + ' Concluir Curadoria';
+      return; // não avança nem marca como validado localmente — a gravação real falhou
+    }
+    // Grava real confirmada — reflete o novo StatusCase no item em memória agora,
+    // sem esperar um reload completo da página.
+    item.status_case = novoStatusCase;
+    // Persistência local — mantida para que Dashboard, Consultar Iniciativas e
+    // Indicadores continuem funcionando com o histórico desta sessão.
+    await ValidationRepository.commitValidation(record);
+    showToast('Curadoria registrada com sucesso.');
+    advanceToNext();
+  } else {
+    await ValidationRepository.saveDraft(record);
+    goToPage('dashboard');
+  }
+}
+
+/** Avança automaticamente para a próxima pendente — sem perguntar. */
+async function advanceToNext(){
+  AppState.viewingAdHoc = false; // se a validação partiu de um item avulso, volta para a fila real
+  await buildQueueAndRender(); // recalcula getIniciativasPendentes() do zero e abre a nova primeira
+  window.scrollTo({top:0, behavior:'auto'});
+}
+
+function showToast(msg){
+  let el = document.getElementById('appToast');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'appToast';
+    el.className = 'app-toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(()=> el.classList.remove('show'), 2200);
+}
+
+</script>
+<script>
+/* ============================================================
+   CAMADA DE UI — parte 4: Lista de Consulta Manual
+   ============================================================ */
+const ListaState = { search: '', filters: { regional:new Set(), franquia:new Set(), categoria:new Set(), status:new Set(), modelo:new Set() } };
+
+/**
+ * Retorna o status efetivo de uma iniciativa.
+ * REGRA: se a categoria oficial definida na curadoria for
+ * "Sem categoria (revisão posterior)", o status é sempre "Necessita revisão",
+ * independentemente do campo status gravado no SharePoint.
+ */
+function statusOf(id){
+  const sessaoLocal = ValidationRepository.getById(id);
+  const item = RAW_DATA.find(d => d.id === id);
+
+  // Determina a categoria oficial: sessão local tem precedência
+  const catOficial = (sessaoLocal && sessaoLocal.categoria_validada)
+    || (item && item.categoria_validada)
+    || null;
+
+  // Aplica a regra de negócio: sem categoria = necessita revisão
+  if(catOficial === 'Sem categoria (revisão posterior)') return 'Necessita revisão';
+
+  // Status normal: sessão local tem precedência sobre o campo vindo do SharePoint
+  if(sessaoLocal) return sessaoLocal.status;
+  return item ? (item.status || 'Pendente') : 'Pendente';
+}
+
+function uniqueSortedVals(arr){ return [...new Set(arr.filter(x=>x!==''&&x!==null&&x!==undefined))].sort((a,b)=>String(a).localeCompare(String(b),'pt-BR')); }
+
+function buildListaFilterPanel(){
+  const regionais = uniqueSortedVals(RAW_DATA.map(d=>d.regional));
+  // Categorias do filtro = as 5 categorias OFICIAIS + "Sem categoria (revisão posterior)"
+  const categorias = MASTER.categorias;
+  const statusList = MASTER.statusCentral;
+
+  function groupHtml(title, field, values, openDefault){
+    const selecionados = ListaState.filters[field];
+    const opts = values.map(v=>{
+      const id = `lf_${field}_${slug(v)}`;
+      const checked = selecionados.has(v) ? 'checked' : '';
+      return `<label class="filter-opt" for="${id}">
+        <input type="checkbox" id="${id}" data-field="${field}" value="${esc(v)}" ${checked}>
+        <span>${esc(v)}</span>
+      </label>`;
+    }).join('');
+    return `<details class="filter-group" ${openDefault?'open':''}><summary>${title}</summary><div>${opts}</div></details>`;
+  }
+
+  /** Franquias visíveis dependem das Regionais marcadas — filtro em cascata. */
+  function franquiasDisponiveis(){
+    const regsMarcadas = ListaState.filters.regional;
+    const base = regsMarcadas.size
+      ? RAW_DATA.filter(d => regsMarcadas.has(d.regional))
+      : RAW_DATA;
+    return uniqueSortedVals(base.map(d=>d.franquia));
+  }
+
+  document.getElementById('listaFilterPanel').innerHTML = `
+    <button type="button" class="btn btn-ghost btn-sm" id="btnLimparFiltrosLista" style="width:100%;margin-bottom:10px;">${ic('x')} Limpar filtros</button>
+    ${groupHtml('Status', 'status', statusList, true)}
+    ${groupHtml('Modelo de Case', 'modelo', ['Case legado','Case estruturado pelo Portal'], true)}
+    ${groupHtml('Categoria', 'categoria', categorias, true)}
+    ${groupHtml('Regional', 'regional', regionais, false)}
+    ${groupHtml('Franquia', 'franquia', franquiasDisponiveis(), false)}
+  `;
+
+  document.getElementById('btnLimparFiltrosLista').addEventListener('click', ()=>{
+    ListaState.filters.regional.clear();
+    ListaState.filters.franquia.clear();
+    ListaState.filters.categoria.clear();
+    ListaState.filters.status.clear();
+    ListaState.filters.modelo.clear();
+    ListaState.search = '';
+    const searchInput = document.getElementById('listaSearch');
+    if(searchInput) searchInput.value = '';
+    buildListaFilterPanel();
+    renderListaResults();
+  });
+
+  document.getElementById('listaFilterPanel').addEventListener('change', (e)=>{
+    if(e.target.matches('input[type=checkbox]')){
+      const field = e.target.dataset.field, val = e.target.value;
+      const set = ListaState.filters[field];
+      if(e.target.checked) set.add(val); else set.delete(val);
+      // Mudar a Regional pode invalidar franquias já marcadas que não pertencem
+      // mais ao recorte atual — removemos essas antes de re-renderizar o painel,
+      // para o filtro de Franquia nunca ficar "escondendo" uma seleção incoerente.
+      if(field === 'regional'){
+        const disponiveis = new Set(franquiasDisponiveis());
+        ListaState.filters.franquia.forEach(fr => { if(!disponiveis.has(fr)) ListaState.filters.franquia.delete(fr); });
+        buildListaFilterPanel();
+      }
+      renderListaResults();
+    }
+  });
+}
+
+function matchesListaFilters(d){
+  // Itens sem iniciativa (Status = "Sem Iniciativa" OU Possui Iniciativa != "Sim")
+  // não entram na curadoria — excluídos desta tela.
+  if(!elegivelParaCuradoria(d)) return false;
+  const f = ListaState.filters;
+  const st = statusOf(d.id);
+  if(f.status.size && !f.status.has(st)) return false;
+  if(f.modelo.size && !f.modelo.has(modeloLabel(d))) return false;
+  if(f.regional.size && !f.regional.has(d.regional)) return false;
+  if(f.franquia.size && !f.franquia.has(d.franquia)) return false;
+  if(f.categoria.size && !f.categoria.has(d.categoria_original || 'Sem categoria')) return false;
+  if(ListaState.search){
+    const hay = [d.nome, d.franquia, d.regional, d.categoria_original, d.objetivo].join(' ').toLowerCase();
+    if(!hay.includes(ListaState.search)) return false;
+  }
+  return true;
+}
+
+/**
+ * Página "Cases" (Etapa 3.1) — duas esteiras, ambas derivadas de RAW_DATA + sessão de
+ * validação local, recalculadas a cada visita à página. Nada aqui é gravado.
+ */
+/* ============================================================
+   Etapa "correção Ver Case / reorganização Cases"
+   ============================================================
+   - Filtro "Modelo de Case" (Todos / Legado / Estruturado) + busca por texto.
+   - Cada esteira (Legado / Estruturado) expande de forma independente ("Ver todos").
+   - "Ver Case" abre um modal de detalhe (não navega mais para outra página).
+   - StatusCase: NÃO existe ainda no backend — nenhum filtro por status é exibido
+     (nada inventado/simulado); ver proposta técnica apresentada à Regi.
+   ============================================================ */
+const CasesState = { modelo: 'todos', statusCase: 'todos', busca: '', expandLegado: false, expandEstruturado: false };
+const CASES_PAGE_SIZE = 8;
+
+function buildCasesFilterPanel(){
+  const panel = document.getElementById('casesFilterPanel');
+  if(!panel) return;
+  const opcoesModelo = [
+    ['todos', 'Todos'],
+    ['legado', 'Cases Manuais — Legado'],
+    ['estruturado', 'Cases Estruturados pelo Portal'],
+  ];
+  const opcoesStatusCase = [
+    ['todos', 'Todos'],
+    ['Pendente', 'Pendente'],
+    ['Em validação', 'Em validação'],
+    ['Pronto para Biblioteca', 'Pronto para Biblioteca'],
+  ];
+  panel.innerHTML = `
+    <button type="button" class="btn btn-ghost btn-sm" id="btnLimparFiltrosCases" style="width:100%;margin-bottom:10px;">${ic('x')} Limpar filtros</button>
+    <details class="filter-group" open>
+      <summary>Modelo de Case</summary>
+      <div>
+        ${opcoesModelo.map(([v,l])=>`
+          <label class="filter-opt">
+            <input type="radio" name="casesModelo" value="${v}" ${CasesState.modelo===v?'checked':''}>
+            <span>${esc(l)}</span>
+          </label>`).join('')}
+      </div>
+    </details>
+    <details class="filter-group" open>
+      <summary>Status da validação</summary>
+      <div>
+        ${opcoesStatusCase.map(([v,l])=>`
+          <label class="filter-opt">
+            <input type="radio" name="casesStatusCase" value="${esc(v)}" ${CasesState.statusCase===v?'checked':''}>
+            <span>${esc(l)}</span>
+          </label>`).join('')}
+      </div>
+    </details>
+  `;
+  panel.querySelectorAll('input[name="casesModelo"]').forEach(input=>{
+    input.addEventListener('change', ()=>{
+      CasesState.modelo = input.value;
+      renderCases();
+    });
+  });
+  panel.querySelectorAll('input[name="casesStatusCase"]').forEach(input=>{
+    input.addEventListener('change', ()=>{
+      CasesState.statusCase = input.value;
+      renderCases();
+    });
+  });
+  document.getElementById('btnLimparFiltrosCases').addEventListener('click', ()=>{
+    CasesState.modelo = 'todos';
+    CasesState.statusCase = 'todos';
+    CasesState.busca = '';
+    const searchInput = document.getElementById('casesSearch');
+    if(searchInput) searchInput.value = '';
+    buildCasesFilterPanel();
+    renderCases();
+  });
+}
+
+function matchesCasesSearch(item){
+  if(!CasesState.busca) return true;
+  const hay = [item.nome, item.franquia, item.regional].join(' ').toLowerCase();
+  return hay.includes(CasesState.busca);
+}
+
+/** Filtro combinado (AND) com "Modelo de Case" — aplicado sobre o StatusCase real do item. */
+function matchesCasesStatusCase(item){
+  return CasesState.statusCase === 'todos' || statusCaseOf(item) === CasesState.statusCase;
+}
+
+/** Badge visual do StatusCase — deliberadamente separado do status-pill (Status geral
+ * da iniciativa) e dos badges de Modelo/Potencial, para não misturar os conceitos. */
+function statusCaseBadgeHtml(item){
+  const valor = statusCaseOf(item);
+  return `<span class="case-status-badge ${slug(valor)}"><span class="dot"></span>${esc(valor)}</span>`;
+}
+
+function caseCardHtml(item, tipo){
+  // tipo: 'legado' | 'novo'
+  const temCase = temCaseEstruturado(item);
+  let botoes;
+  if(tipo === 'legado'){
+    botoes = temCase
+      ? `<button class="btn btn-ghost btn-sm" onclick="abrirDetalheCase(${item.id})">${ic('eye')} Ver Case</button>
+         <button class="btn btn-ghost btn-sm" onclick="abrirConstrucaoCase(${item.id})">${ic('wrench')} Editar Case</button>`
+      : `<button class="btn btn-ghost btn-sm" onclick="abrirConstrucaoCase(${item.id})">${ic('wrench')} Construir Case</button>`;
+  } else {
+    botoes = `<button class="btn btn-ghost btn-sm" onclick="abrirDetalheCase(${item.id})">${ic('eye')} Ver Case</button>`;
+  }
+  const linhaPotencial = tipo === 'legado'
+    ? `<div class="meta"><b>Potencial de Replicação (Curadoria):</b> ${esc(potencialCuradoriaLabel(item))}</div>`
+    : `<div class="meta"><b>Potencial informado pela franquia:</b> ${esc(item.potencial_replicacao_franquia)}</div>
+       <div class="meta"><b>Potencial definido pela Curadoria:</b> ${esc(potencialCuradoriaLabel(item))}</div>`;
+  const linhaResumo = tipo === 'novo'
+    ? `<div class="meta"><b>Resumo do Case:</b> ${resumoCurto(item.case_situacao_motivo, 140)}</div>`
+    : '';
+  const linhaRevisorData = tipo === 'legado'
+    ? `<div class="meta"><b>Revisor:</b> ${esc(item.revisor_curadoria)}</div>
+       <div class="meta"><b>Data da Curadoria:</b> ${dataCuradoriaDisplay(item)}</div>`
+    : '';
+  return `
+    <div class="card cat-card hoverable">
+      <div class="top-row"><h4>${esc(item.nome)}</h4><span class="status-pill ${slug(statusOf(item.id))}">${esc(statusOf(item.id))}</span></div>
+      <div class="badgerow">${modeloBadgeHtml(item)}${statusCaseBadgeHtml(item)}</div>
+      <div class="meta"><b>Franquia:</b> ${esc(item.franquia)}</div>
+      <div class="meta"><b>Regional:</b> ${esc(item.regional)}</div>
+      <div class="meta"><b>Data de cadastro:</b> ${dataCadastroDisplay(item)}</div>
+      ${linhaPotencial}
+      ${linhaResumo}
+      <div class="meta"><b>Parecer da Curadoria:</b> ${resumoCurto(item.parecer_curadoria, 140)}</div>
+      ${linhaRevisorData}
+      <div class="foot-row">
+        <span></span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">${botoes}</div>
+      </div>
+    </div>`;
+}
+
+/** Renderiza uma esteira (Legado ou Estruturado) com paginação "Ver todos" independente. */
+function renderCasesSecao(lista, tipo, elId, countElId, btnId, expandido, onExpandir, msgVazio){
+  const el = document.getElementById(elId);
+  const countEl = document.getElementById(countElId);
+  const btn = document.getElementById(btnId);
+  if(!el) return;
+
+  if(!lista.length){
+    el.innerHTML = `<div class="empty-state">${ic('trophy')}${msgVazio}</div>`;
+    if(countEl) countEl.textContent = '';
+    if(btn) btn.style.display = 'none';
+    return;
+  }
+
+  const visiveis = expandido ? lista : lista.slice(0, CASES_PAGE_SIZE);
+  el.innerHTML = visiveis.map(item => caseCardHtml(item, tipo)).join('');
+
+  if(countEl) countEl.textContent = `Mostrando ${visiveis.length} de ${lista.length} iniciativa${lista.length>1?'s':''}`;
+
+  if(btn){
+    if(lista.length > CASES_PAGE_SIZE){
+      btn.style.display = '';
+      btn.textContent = expandido ? 'Mostrar menos' : `Ver todos (${lista.length})`;
+      btn.onclick = onExpandir;
+    } else {
+      btn.style.display = 'none';
+    }
+  }
+}
+
+function renderCases(){
+  buildCasesFilterPanel();
+
+  const searchInput = document.getElementById('casesSearch');
+  if(searchInput && !searchInput.dataset.wired){
+    searchInput.dataset.wired = '1';
+    searchInput.addEventListener('input', (e)=>{
+      CasesState.busca = e.target.value.trim().toLowerCase();
+      renderCases();
+    });
+  }
+  if(searchInput) searchInput.value = CasesState.busca;
+
+  // elegivelParaCuradoria garante que registros com Possui Iniciativa != "Sim" nunca
+  // entram em Cases, mesmo que o Status no SharePoint já esteja como "Validada".
+  const dadosCuradoria = RAW_DATA.filter(elegivelParaCuradoria).filter(matchesCasesSearch);
+  const legadoList = dadosCuradoria.filter(elegivelCaseManual).filter(matchesCasesStatusCase);
+  const novoList = dadosCuradoria.filter(elegivelCaseEstruturado).filter(matchesCasesStatusCase);
+
+  const secLegado = document.getElementById('casesLegadoSection');
+  const secNovo = document.getElementById('casesNovoSection');
+  if(secLegado) secLegado.style.display = (CasesState.modelo === 'todos' || CasesState.modelo === 'legado') ? '' : 'none';
+  if(secNovo) secNovo.style.display = (CasesState.modelo === 'todos' || CasesState.modelo === 'estruturado') ? '' : 'none';
+
+  renderCasesSecao(
+    legadoList, 'legado', 'casesLegadoView', 'casesLegadoCount', 'btnVerTodosLegado',
+    CasesState.expandLegado,
+    ()=>{ CasesState.expandLegado = !CasesState.expandLegado; renderCases(); },
+    'Nenhuma iniciativa legado validada com potencial Alto aguardando Case manual no momento.'
+  );
+  renderCasesSecao(
+    novoList, 'novo', 'casesNovoView', 'casesNovoCount', 'btnVerTodosNovo',
+    CasesState.expandEstruturado,
+    ()=>{ CasesState.expandEstruturado = !CasesState.expandEstruturado; renderCases(); },
+    'Nenhuma iniciativa do Novo Modelo com Case validada pela Curadoria no momento.'
+  );
+}
+
+/* ============================================================
+   Modal "Ver Case" — detalhe completo, sem navegar para outra página
+   ============================================================ */
+
+/** true se o valor deve ser tratado como ausente para exibição (cobre undefined,
+ * null, string vazia/só espaço, array vazio, e os literais "undefined"/"null"/
+ * "[object Object]" que eventualmente chegam como texto de uma fonte externa). */
+function valorAusente(v){
+  if(v === undefined || v === null) return true;
+  if(Array.isArray(v)) return v.length === 0;
+  const s = String(v).trim();
+  return s === '' || s === 'undefined' || s === 'null' || s === '[object Object]';
+}
+
+/** Linha curta "rótulo: valor" — OCULTA a linha inteira se o valor estiver ausente. */
+function linhaDetalhe(label, valor){
+  if(valorAusente(valor)) return '';
+  const texto = Array.isArray(valor) ? valor.join(', ') : String(valor);
+  return `<div class="ro-field"><div class="ro-k">${esc(label)}</div><div class="ro-v">${esc(texto)}</div></div>`;
+}
+
+/** Bloco de texto longo — mostra "Não informado." (não oculta) quando o valor está ausente. */
+function blocoDetalhe(label, valor){
+  if(valorAusente(valor)){
+    return `<div class="ro-full"><div class="ro-full-k">${esc(label)}</div><div class="ro-full-v" style="color:var(--gm);font-style:italic;">Não informado.</div></div>`;
+  }
+  return `<div class="ro-full"><div class="ro-full-k">${esc(label)}</div><div class="ro-full-v">${esc(String(valor))}</div></div>`;
+}
+
+function abrirDetalheCase(id){
+  const item = RAW_DATA.find(d => d.id === id);
+  if(!item) return;
+  renderDetalheCase(item);
+  document.getElementById('caseDetailOverlay').classList.add('open');
+}
+
+function fecharDetalheCase(){
+  document.getElementById('caseDetailOverlay').classList.remove('open');
+}
+
+function renderDetalheCase(item){
+  const tipo = classificarModelo(item);
+  const eyebrow = tipo === 'novo' ? 'CASE ESTRUTURADO PELO PORTAL' : 'CASE MANUAL — LEGADO';
+
+  document.getElementById('caseDetailHeadInfo').innerHTML = `
+    <div class="cd-eyebrow">${esc(eyebrow)}</div>
+    <div class="cd-title">${esc(item.nome)}</div>
+    <div class="cd-meta">
+      <span>${esc(item.franquia)}</span><span>·</span><span>${esc(item.regional)}</span><span>·</span>
+      <span class="status-pill ${slug(statusOf(item.id))}">${esc(statusOf(item.id))}</span>
+      ${modeloBadgeHtml(item)}
+      ${statusCaseBadgeHtml(item)}
+    </div>
+  `;
+
+  const bloco1 = `
+    <div class="block1-wrap">
+      <div class="block-title block1-title">${ic('book')} Bloco 1 — Identificação</div>
+      <div class="block1-grid">
+        ${linhaDetalhe('Nome do Projeto', item.nome)}
+        ${linhaDetalhe('Franquia', item.franquia)}
+        ${linhaDetalhe('Regional', item.regional)}
+        ${linhaDetalhe('Estado', item.estado)}
+        ${linhaDetalhe('Cidade', item.cidade)}
+        ${linhaDetalhe('Tipo da Franquia', item.tipo_franquia)}
+        ${linhaDetalhe('Tempo de Operação', item.tempo_operacao)}
+        ${linhaDetalhe('Maturidade Digital', item.maturidade_digital)}
+        ${linhaDetalhe('Data de Cadastro', dataCadastroDisplay(item))}
+      </div>
+    </div>`;
+
+  const bloco2 = `
+    <div class="block1-wrap" style="margin-top:18px;">
+      <div class="block-title block1-title">${ic('clipboard')} Bloco 2 — Informações da Iniciativa</div>
+      <div class="block1-grid">
+        ${linhaDetalhe('Possui Iniciativa', item.possui_iniciativa)}
+        ${linhaDetalhe('Categoria', item.categoria_original)}
+        ${linhaDetalhe('Status Atual', item.status_atual)}
+        ${linhaDetalhe('Indicador Operacional', item.area_impactada)}
+        ${linhaDetalhe('Ferramentas (seleção)', item.ferramentas_chips)}
+        ${linhaDetalhe('Próximo Estágio', item.proximo_estagio)}
+        ${linhaDetalhe('Responsável', item.responsavel)}
+      </div>
+      ${blocoDetalhe('Objetivo', item.objetivo)}
+    </div>`;
+
+  const bloco3 = `
+    <div class="block1-wrap" style="margin-top:18px;">
+      <div class="block-title block1-title">${ic('target')} Bloco 3 — Potencial de Replicação</div>
+      <div class="block1-grid">
+        ${linhaDetalhe('Potencial informado pela franquia (autoavaliação)', item.potencial_replicacao_franquia)}
+        ${linhaDetalhe('Potencial definido pela Curadoria', potencialCuradoriaLabel(item))}
+      </div>
+    </div>`;
+
+  const bloco4 = `
+    <div class="block1-wrap" style="margin-top:18px;">
+      <div class="block-title block1-title">${ic('trophy')} Bloco 4 — Parecer da Curadoria</div>
+      <div class="block1-grid">
+        ${linhaDetalhe('Categoria Oficial', categoriaOficialCuradoria(item))}
+        ${linhaDetalhe('Potencial de Replicação (Curadoria)', potencialCuradoriaLabel(item))}
+        ${linhaDetalhe('Revisor', revisorCuradoria(item))}
+        ${linhaDetalhe('Data da Curadoria', dataCuradoriaDisplay(item))}
+        ${linhaDetalhe('Status Geral da Iniciativa', statusOf(item.id))}
+      </div>
+      ${blocoDetalhe('Parecer da Curadoria', parecerCuradoria(item))}
+    </div>`;
+
+  const temCase = temCaseEstruturado(item);
+  const bloco5 = `
+    <div class="block1-wrap" style="margin-top:18px;">
+      <div class="block-title block1-title">${ic('briefcase')} Bloco 5 — Case</div>
+      ${temCase ? `
+        <div class="ro-group-title">Situação</div>
+        ${blocoDetalhe('Situação / Motivo', item.case_situacao_motivo)}
+        ${blocoDetalhe('Situação / Impacto', item.case_situacao_impacto)}
+
+        <div class="ro-group-title">Implantação</div>
+        <div class="block1-grid">
+          ${linhaDetalhe('Requer investimento', item.case_requer_investimento)}
+        </div>
+        ${blocoDetalhe('Descrição dos investimentos', item.case_investimentos_desc)}
+        ${blocoDetalhe('Como foi implementado', item.case_como_implementado)}
+        <div class="block1-grid">
+          ${linhaDetalhe('Ferramentas utilizadas', item.case_ferramentas_utilizadas)}
+          ${linhaDetalhe('Áreas envolvidas', item.case_areas_envolvidas)}
+        </div>
+
+        <div class="ro-group-title">Resultados</div>
+        ${blocoDetalhe('Benefícios obtidos', item.case_beneficios_obtidos)}
+        ${linhaDetalhe('Resultados mensuráveis', item.case_resultados_mensuraveis)}
+
+        <div class="ro-group-title">Recomendações</div>
+        ${blocoDetalhe('Cuidados recomendados', item.case_cuidados_recomendados)}
+        ${blocoDetalhe('Pré-requisitos', item.case_pre_requisito)}
+        ${linhaDetalhe('Materiais de apoio', item.case_materiais_apoio)}
+      ` : `
+        <div class="ro-full"><div class="ro-full-v" style="color:var(--gm);font-style:italic;">Case ainda não construído/preenchido para esta iniciativa.</div></div>
+      `}
+    </div>`;
+
+  // Bloco 6 — decisão do auditor sobre o StatusCase. Só existe se já houver Case
+  // preenchido para avaliar (Legado já construído ou Novo Modelo estruturado).
+  const statusCaseAtual = statusCaseOf(item);
+  const opcoesStatusCase = [
+    ['Pendente', 'Pendente'],
+    ['Em validação', 'Em validação'],
+    ['Pronto para Biblioteca', 'Pronto para Biblioteca'],
+  ];
+  const bloco6 = temCase ? `
+    <div class="block1-wrap" style="margin-top:18px;">
+      <div class="block-title block1-title">${ic('target')} Avaliação do Case</div>
+      <div id="cdAvaliacaoMsg"></div>
+      <div class="review-block" style="margin-bottom:0;padding-bottom:0;border-bottom:none;">
+        <div class="rb-label">Status da validação do Case <span class="req-star">*</span><span class="rb-hint">decisão do auditor sobre o resultado desta revisão</span></div>
+        <div class="radio-pill-row" id="cdStatusCase">
+          ${opcoesStatusCase.map(([val,label])=>`<button type="button" class="radio-pill ${statusCaseAtual===val?'on':''}" data-val="${esc(val)}">${esc(label)}</button>`).join('')}
+        </div>
+      </div>
+      <div style="margin-top:16px;">
+        <button type="button" class="btn btn-primary btn-sm" id="btnSalvarAvaliacaoCase">${ic('trophy')} Salvar avaliação</button>
+      </div>
+    </div>` : '';
+
+  document.getElementById('caseDetailBody').innerHTML = bloco1 + bloco2 + bloco3 + bloco4 + bloco5 + bloco6;
+
+  if(temCase){
+    bindRadioGroup('cdStatusCase', ()=>{});
+    const btnAvaliacao = document.getElementById('btnSalvarAvaliacaoCase');
+    if(btnAvaliacao) btnAvaliacao.addEventListener('click', ()=> handleSalvarAvaliacaoCase(item));
+  }
+}
+
+/**
+ * Salva só a decisão do auditor sobre o StatusCase, a partir do modal "Ver Case"
+ * (Legado já construído ou Novo Modelo estruturado pelo Portal). Reenvia os campos
+ * de curadoria e os 12 campos de Case com o valor JÁ GRAVADO (mesmo padrão de
+ * handleSave/handleSaveCase) — só o status_case muda de verdade nesta chamada.
+ */
+async function handleSalvarAvaliacaoCase(item){
+  const novoStatusCase = lerStatusCaseSelecionado('cdStatusCase');
+  const msgBox = document.getElementById('cdAvaliacaoMsg');
+  const btn = document.getElementById('btnSalvarAvaliacaoCase');
+  if(msgBox) msgBox.innerHTML = '';
+  if(btn){ btn.disabled = true; btn.textContent = 'Salvando…'; }
+  try {
+    await ApiService.salvarCuradoria({
+      id: item.id,
+      categoria: categoriaOficialCuradoria(item),
+      potencial: potencialCuradoria(item),
+      nota: notaCuradoria(item),
+      parecer: parecerCuradoria(item),
+      revisor: revisorCuradoria(item),
+      status_case: novoStatusCase,
+      case_situacao_motivo: item.case_situacao_motivo,
+      case_situacao_impacto: item.case_situacao_impacto,
+      case_requer_investimento: item.case_requer_investimento,
+      case_investimentos_desc: item.case_investimentos_desc,
+      case_como_implementado: item.case_como_implementado,
+      case_ferramentas_utilizadas: item.case_ferramentas_utilizadas,
+      case_areas_envolvidas: item.case_areas_envolvidas,
+      case_beneficios_obtidos: item.case_beneficios_obtidos,
+      case_resultados_mensuraveis: item.case_resultados_mensuraveis,
+      case_cuidados_recomendados: item.case_cuidados_recomendados,
+      case_pre_requisito: item.case_pre_requisito,
+      case_materiais_apoio: item.case_materiais_apoio,
+    });
+  } catch (err) {
+    console.error('[handleSalvarAvaliacaoCase] Falha ao enviar avaliação:', err);
+    if(msgBox) msgBox.innerHTML = `
+      <div class="validation-banner">
+        <div class="vb-title">${ic('question')} Não foi possível salvar a avaliação</div>
+        <ul><li>Nada foi registrado ainda. Verifique sua conexão e tente novamente.</li></ul>
+      </div>`;
+    if(btn){ btn.disabled = false; btn.innerHTML = ic('trophy') + ' Salvar avaliação'; }
+    return;
+  }
+  item.status_case = novoStatusCase;
+  fecharDetalheCase();
+  abrirModalSucessoCase(item.id);
+}
+
+document.getElementById('caseDetailCloseBtn').addEventListener('click', fecharDetalheCase);
+document.getElementById('caseDetailOverlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'caseDetailOverlay') fecharDetalheCase();
+});
+document.addEventListener('keydown', (e)=>{
+  if(e.key === 'Escape') fecharDetalheCase();
+});
+
+function renderListaResults(){
+  const base = RAW_DATA.filter(elegivelParaCuradoria);
+  const list = base.filter(matchesListaFilters);
+  document.getElementById('listaResultCount').textContent = `${list.length} de ${base.length} iniciativas`;
+  const el = document.getElementById('listaCardsView');
+  if(!list.length){
+    el.innerHTML = `<div class="empty-state">${ic('search')}Nenhuma iniciativa encontrada.</div>`;
+    return;
+  }
+  el.innerHTML = list.slice(0,400).map(d=>{
+    const st = statusOf(d.id);
+    const isValidada = st === 'Validada';
+    const btnLabel = isValidada ? `${ic('info')} Ver / Editar` : 'Revisar esta';
+    return `<div class="card cat-card hoverable">
+      <div class="top-row"><h4>${esc(d.nome)}${d._novo ? ' <span class="badge-novo">'+ic('sparkle')+' Novo</span>' : ''}</h4><span class="status-pill ${slug(st)}">${esc(st)}</span></div>
+      <div class="badgerow">
+        ${modeloBadgeHtml(d)}
+        ${badgeHtml(d.categoria_original || 'Sem categoria', CAT_COLOR[d.categoria_original||'Sem categoria']||'b-gray')}
+        ${badgeHtml((d.regional || 'Sem regional').replace('Regional ',''),'b-navy')}
+      </div>
+      <div class="meta"><b>Franquia:</b> ${esc(d.franquia)}</div>
+      <div class="foot-row">
+        <span></span>
+        <button class="btn ${isValidada ? 'btn-ghost' : 'btn-ghost'} btn-sm" onclick="openSingleReview(${d.id})">${btnLabel}</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+const CAT_COLOR = {
+  'Vendas':'b-purple', 'Retenção':'b-teal', 'Adimplência':'b-orange',
+  'Reputação':'b-gold', 'Cashback':'b-green', 'Sem categoria':'b-gray'
+};
+function badgeHtml(text, cls){ return `<span class="badge ${cls}">${esc(text)}</span>`; }
+
+/**
+ * Abre uma única iniciativa para revisão avulsa a partir de Consultar Iniciativas.
+ * Correção do bug conhecido: isto NÃO mexe mais em AppState.currentQueue (a fila real
+ * da Fila de Revisão) — usa um estado separado (viewingAdHoc/adHocItem), para que
+ * voltar à Fila de Revisão pelo menu sempre mostre a fila de verdade (a primeira
+ * iniciativa Pendente, via getIniciativasPendentes()).
+ */
+function openSingleReview(id){
+  const item = RAW_DATA.find(d=>d.id===id);
+  if(!item) return;
+  AppState.viewingAdHoc = true;
+  AppState.adHocItem = item;
+  goToPage('revisao');
+  renderReviewCard();
+}
+
+/* ============================================================
+   PROBLEMA 1 (rodada "Construção do Case") — botão "Construir Case"
+   ============================================================
+   Antes: o botão chamava openSingleReview(), que reaproveita a página
+   "Fila de Revisão" (page-revisao) para mostrar a iniciativa avulsa — por isso,
+   visualmente, o curador via a mesma tela/mesmo menu ativo da Fila de Revisão,
+   ainda que tecnicamente não fosse a fila real (graças à correção viewingAdHoc já
+   existente). Ou seja: não era um bug de estado corrompido, mas sim a ausência de
+   uma tela própria de Construção do Case — a tela de revisão geral (Bloco 1 +
+   Curadoria) não é isso.
+   Agora: página e estado 100% dedicados (page-construir-case / caseBuilderItem),
+   sem tocar em currentQueue/currentIndex/viewingAdHoc/adHocItem — nenhum caminho
+   a partir daqui leva de volta à Fila de Revisão.
+   ============================================================ */
+function abrirConstrucaoCase(id){
+  const item = RAW_DATA.find(d => d.id === id);
+  if(!item) return;
+  AppState.caseBuilderItem = item;
+  goToPage('construir-case');
+  renderCaseBuilder();
+}
+
+/**
+ * Etapa "ativar gravação real" — os 12 campos de conteúdo do Case, obrigatórios com
+ * mínimo de 100 caracteres (regra definida pela Regi, seção 8). "Ferramentas
+ * utilizadas" e "Áreas envolvidas" são obrigatórios SEM mínimo de caracteres.
+ * "Resultados mensuráveis" e "Materiais de apoio" são opcionais.
+ */
+const CASE_CAMPOS_MIN100 = [
+  ['case_situacao_motivo', 'Qual situação motivou a iniciativa?'],
+  ['case_situacao_impacto', 'Como essa situação impactava a operação?'],
+  ['case_como_implementado', 'Como a iniciativa foi implementada?'],
+  ['case_beneficios_obtidos', 'Quais foram os principais benefícios obtidos?'],
+  ['case_cuidados_recomendados', 'Quais cuidados outra franquia deve ter?'],
+  ['case_pre_requisito', 'Existe algum pré-requisito importante?'],
+];
+
+/** Valida o formulário de Construção do Case. Retorna lista de erros (vazia = ok). */
+function validateCaseForm(form){
+  const erros = [];
+  CASE_CAMPOS_MIN100.forEach(([campo, label])=>{
+    const v = (form[campo] || '').trim();
+    if(!v) erros.push(`Preencha: ${label}`);
+    else if(v.length < 100) erros.push(`"${label}" precisa de pelo menos 100 caracteres (hoje tem ${v.length}).`);
+  });
+  if(!form.case_requer_investimento) erros.push('Selecione se a implantação requer investimentos (Sim/Não).');
+  if(form.case_requer_investimento === 'Sim'){
+    const v = (form.case_investimentos_desc || '').trim();
+    if(!v) erros.push('Preencha: Quais investimentos são necessários?');
+    else if(v.length < 100) erros.push(`"Quais investimentos são necessários?" precisa de pelo menos 100 caracteres (hoje tem ${v.length}).`);
+  }
+  if(!(form.case_ferramentas_utilizadas || '').trim()) erros.push('Preencha: Ferramentas utilizadas');
+  if(!(form.case_areas_envolvidas || '').trim()) erros.push('Preencha: Áreas envolvidas');
+  // case_resultados_mensuraveis e case_materiais_apoio são opcionais — sem validação.
+  return erros;
+}
+
+/**
+ * Renderiza a tela de Construção do Case Manual (Legado).
+ * Etapa "ativar gravação real": Etapas 1-4 concluídas — a Regi confirmou que o fluxo
+ * "Central Curadoria - Salvar Curadoria (SharePoint)" já mapeia os 12 campos de Case
+ * no Update item. Botão "Salvar Case" habilitado (Etapa 5 — teste controlado em
+ * andamento). Ver handleSaveCase() para o fluxo de gravação real.
+ */
+function renderCaseBuilder(){
+  const item = AppState.caseBuilderItem;
+  const shell = document.getElementById('caseBuilderShell');
+  if(!shell) return;
+  if(!item){
+    shell.innerHTML = `<div class="empty-state">${ic('question')}Nenhuma iniciativa selecionada. Volte para Cases e clique em "Construir Case" novamente.</div>`;
+    return;
+  }
+
+  // Pré-preenche com o que já existe no registro (SharePoint) — nunca abre em branco
+  // se o Case já tiver algum conteúdo (ex.: reabrir para revisar/editar).
+  const v = (campo) => item[campo] ? esc(item[campo]) : '';
+  const requerInv = item.case_requer_investimento || '';
+  const statusCaseAtual = statusCaseOf(item);
+  const opcoesStatusCase = [
+    ['Pendente', 'Pendente'],
+    ['Em validação', 'Em validação'],
+    ['Pronto para Biblioteca', 'Pronto para Biblioteca'],
+  ];
+
+  shell.innerHTML = `
+    <div class="review-card">
+      <div class="review-card-head">
+        <div class="rc-eyebrow">Construção do Case · Legado</div>
+        <h2>${esc(item.nome)}</h2>
+        <div class="rc-meta">
+          <span>${esc(item.franquia)}</span><span>·</span><span>${esc(item.regional)}</span><span>·</span>${modeloBadgeHtml(item)}${statusCaseBadgeHtml(item)}
+        </div>
+      </div>
+      <div class="review-card-body">
+
+        <div class="block1-wrap">
+          <div class="block-title block1-title">${ic('book')} Identificação da Iniciativa</div>
+          <div class="block1-grid">
+            <div class="ro-field"><div class="ro-k">Nome da Iniciativa</div><div class="ro-v">${esc(item.nome)}</div></div>
+            <div class="ro-field"><div class="ro-k">Franquia</div><div class="ro-v">${esc(item.franquia)}</div></div>
+            <div class="ro-field"><div class="ro-k">Regional</div><div class="ro-v">${esc(item.regional)}</div></div>
+            <div class="ro-field"><div class="ro-k">Estado</div><div class="ro-v">${esc(item.estado)}</div></div>
+            <div class="ro-field"><div class="ro-k">Cidade</div><div class="ro-v">${esc(item.cidade)}</div></div>
+            <div class="ro-field"><div class="ro-k">Categoria</div><div class="ro-v">${esc(categoriaOficialCuradoria(item) || '—')}</div></div>
+            <div class="ro-field"><div class="ro-k">Potencial de Replicação (Curadoria)</div><div class="ro-v">${esc(potencialCuradoriaLabel(item) || '—')}</div></div>
+            <div class="ro-field"><div class="ro-k">Revisor</div><div class="ro-v">${esc(revisorCuradoria(item) || '—')}</div></div>
+          </div>
+          <div class="ro-full"><div class="ro-full-k">Parecer da Curadoria</div><div class="ro-full-v">${descText(parecerCuradoria(item))}</div></div>
+        </div>
+
+        <div id="caseBuilderErrors"></div>
+        <div id="caseBuilderSuccess"></div>
+
+        <div class="block2-wrap" style="margin-top:18px;">
+          <div class="block-title block2-title">${ic('briefcase')} Construção do Case</div>
+
+          <div class="ro-group-title">Situação</div>
+          <div class="review-block">
+            <div class="rb-label">Qual situação motivou a iniciativa? <span class="req-star">*</span><span class="rb-hint">mínimo 100 caracteres</span></div>
+            <textarea class="obs-field" id="cbSituacaoMotivo" placeholder="Descreva o contexto/problema que motivou a iniciativa...">${v('case_situacao_motivo')}</textarea>
+            <div class="char-counter" id="cbSituacaoMotivoCounter"></div>
+          </div>
+          <div class="review-block">
+            <div class="rb-label">Como essa situação impactava a operação? <span class="req-star">*</span><span class="rb-hint">mínimo 100 caracteres</span></div>
+            <textarea class="obs-field" id="cbSituacaoImpacto" placeholder="Descreva o impacto na operação antes da iniciativa...">${v('case_situacao_impacto')}</textarea>
+            <div class="char-counter" id="cbSituacaoImpactoCounter"></div>
+          </div>
+          <div class="review-block">
+            <div class="rb-label">A implantação da iniciativa requer investimentos? <span class="req-star">*</span></div>
+            <div class="radio-pill-row" id="cbRequerInvestimento">
+              <button type="button" class="radio-pill ${requerInv==='Sim'?'on':''}" data-val="Sim">Sim</button>
+              <button type="button" class="radio-pill ${requerInv==='Não'?'on':''}" data-val="Não">Não</button>
+            </div>
+          </div>
+          <div class="review-block" id="cbInvestimentosWrap" style="${requerInv==='Sim'?'':'display:none;'}">
+            <div class="rb-label">Quais investimentos são necessários? <span class="req-star">*</span><span class="rb-hint">mínimo 100 caracteres</span></div>
+            <textarea class="obs-field" id="cbInvestimentosDesc" placeholder="Descreva os investimentos necessários...">${v('case_investimentos_desc')}</textarea>
+            <div class="char-counter" id="cbInvestimentosDescCounter"></div>
+          </div>
+
+          <div class="ro-group-title">Implantação</div>
+          <div class="review-block">
+            <div class="rb-label">Como a iniciativa foi implementada? <span class="req-star">*</span><span class="rb-hint">mínimo 100 caracteres</span></div>
+            <textarea class="obs-field" id="cbComoImplementado" placeholder="Descreva como a iniciativa foi implementada...">${v('case_como_implementado')}</textarea>
+            <div class="char-counter" id="cbComoImplementadoCounter"></div>
+          </div>
+          <div class="review-block">
+            <div class="rb-label">Ferramentas utilizadas <span class="req-star">*</span></div>
+            <textarea class="obs-field" id="cbFerramentasUtilizadas" placeholder="Liste as ferramentas utilizadas...">${v('case_ferramentas_utilizadas')}</textarea>
+          </div>
+          <div class="review-block">
+            <div class="rb-label">Áreas envolvidas <span class="req-star">*</span></div>
+            <textarea class="obs-field" id="cbAreasEnvolvidas" placeholder="Liste as áreas envolvidas...">${v('case_areas_envolvidas')}</textarea>
+          </div>
+
+          <div class="ro-group-title">Resultados</div>
+          <div class="review-block">
+            <div class="rb-label">Quais foram os principais benefícios obtidos? <span class="req-star">*</span><span class="rb-hint">mínimo 100 caracteres</span></div>
+            <textarea class="obs-field" id="cbBeneficiosObtidos" placeholder="Descreva os benefícios obtidos...">${v('case_beneficios_obtidos')}</textarea>
+            <div class="char-counter" id="cbBeneficiosObtidosCounter"></div>
+          </div>
+          <div class="review-block">
+            <div class="rb-label">Resultados mensuráveis <span class="rb-hint">campo opcional</span></div>
+            <textarea class="obs-field" id="cbResultadosMensuraveis" placeholder="Números, indicadores, percentuais (se houver)...">${v('case_resultados_mensuraveis')}</textarea>
+          </div>
+
+          <div class="ro-group-title">Recomendações</div>
+          <div class="review-block">
+            <div class="rb-label">Quais cuidados outra franquia deve ter? <span class="req-star">*</span><span class="rb-hint">mínimo 100 caracteres</span></div>
+            <textarea class="obs-field" id="cbCuidadosRecomendados" placeholder="Descreva os cuidados recomendados...">${v('case_cuidados_recomendados')}</textarea>
+            <div class="char-counter" id="cbCuidadosRecomendadosCounter"></div>
+          </div>
+          <div class="review-block">
+            <div class="rb-label">Existe algum pré-requisito importante? <span class="req-star">*</span><span class="rb-hint">mínimo 100 caracteres</span></div>
+            <textarea class="obs-field" id="cbPreRequisito" placeholder="Descreva pré-requisitos, se houver...">${v('case_pre_requisito')}</textarea>
+            <div class="char-counter" id="cbPreRequisitoCounter"></div>
+          </div>
+
+          <div class="ro-group-title">Materiais de Apoio</div>
+          <div class="review-block">
+            <div class="rb-label">Anexos, links, imagens e documentos <span class="rb-hint">campo opcional — upload de arquivos não está disponível nesta tela; use links</span></div>
+            <textarea class="obs-field" id="cbMateriaisApoio" placeholder="Cole links de materiais de apoio (Drive, links externos, etc.)...">${v('case_materiais_apoio')}</textarea>
+          </div>
+
+          <div class="ro-group-title">Avaliação do Case</div>
+          <div class="review-block" style="margin-bottom:0;padding-bottom:0;border-bottom:none;">
+            <div class="rb-label">Status da validação do Case <span class="req-star">*</span><span class="rb-hint">decisão do auditor sobre o resultado desta revisão</span></div>
+            <div class="radio-pill-row" id="cbStatusCase">
+              ${opcoesStatusCase.map(([val,label])=>`<button type="button" class="radio-pill ${statusCaseAtual===val?'on':''}" data-val="${esc(val)}">${esc(label)}</button>`).join('')}
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <div class="review-actions">
+        <div class="ra-left">
+          <button class="btn btn-ghost btn-sm" id="btnVoltarCases">${ic('menu')} Voltar para Cases</button>
+        </div>
+        <div class="ra-right">
+          <button class="btn btn-primary btn-sm" id="btnSalvarCase">${ic('trophy')} Salvar Case</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  bindRadioGroup('cbRequerInvestimento', (v)=>{
+    const wrap = document.getElementById('cbInvestimentosWrap');
+    if(wrap) wrap.style.display = v === 'Sim' ? '' : 'none';
+  });
+  bindRadioGroup('cbStatusCase', ()=>{});
+
+  initCaseCharCounters();
+
+  const btnVoltar = document.getElementById('btnVoltarCases');
+  if(btnVoltar) btnVoltar.addEventListener('click', ()=> goToPage('cases'));
+
+  const btnSalvar = document.getElementById('btnSalvarCase');
+  if(btnSalvar) btnSalvar.addEventListener('click', handleSaveCase);
+}
+
+/**
+ * Contador de caracteres ao vivo — mesmo mínimo real usado na validação
+ * (CASE_CAMPOS_MIN100 / 100 caracteres), nunca um número inventado. Abaixo do
+ * mínimo mostra "X de MIN caracteres mínimos"; ao atingir o mínimo mostra
+ * "✓ X caracteres" (sem ícone novo — "✓" é caractere de texto simples).
+ */
+const CASE_CAMPOS_CONTADOR = [
+  ['cbSituacaoMotivo', 'cbSituacaoMotivoCounter', 100],
+  ['cbSituacaoImpacto', 'cbSituacaoImpactoCounter', 100],
+  ['cbInvestimentosDesc', 'cbInvestimentosDescCounter', 100],
+  ['cbComoImplementado', 'cbComoImplementadoCounter', 100],
+  ['cbBeneficiosObtidos', 'cbBeneficiosObtidosCounter', 100],
+  ['cbCuidadosRecomendados', 'cbCuidadosRecomendadosCounter', 100],
+  ['cbPreRequisito', 'cbPreRequisitoCounter', 100],
+];
+
+function atualizarContadorCaracteres(textareaId, contadorId, minimo){
+  const textarea = document.getElementById(textareaId);
+  const contador = document.getElementById(contadorId);
+  if(!textarea || !contador) return;
+  const len = textarea.value.trim().length;
+  if(len >= minimo){
+    contador.textContent = `✓ ${len} caracteres`;
+    contador.classList.add('ok');
+  } else {
+    contador.textContent = `${len} de ${minimo} caracteres mínimos`;
+    contador.classList.remove('ok');
+  }
+}
+
+function initCaseCharCounters(){
+  CASE_CAMPOS_CONTADOR.forEach(([textareaId, contadorId, minimo])=>{
+    const textarea = document.getElementById(textareaId);
+    if(!textarea) return;
+    atualizarContadorCaracteres(textareaId, contadorId, minimo);
+    textarea.addEventListener('input', ()=> atualizarContadorCaracteres(textareaId, contadorId, minimo));
+  });
+}
+
+/**
+ * Lê a opção marcada num grupo radio-pill de "Status da validação do Case"
+ * (cbStatusCase na Construção do Case, cdStatusCase no modal "Ver Case"). Sempre
+ * existe uma opção marcada (o próprio render já pré-seleciona o valor atual via
+ * statusCaseOf()), mas o fallback "Pendente" cobre qualquer estado inesperado do DOM.
+ */
+function lerStatusCaseSelecionado(containerId){
+  const el = document.querySelector(`#${containerId} .radio-pill.on`);
+  return el ? el.dataset.val : 'Pendente';
+}
+
+/** Lê os 12 campos do formulário de Construção do Case a partir do DOM. */
+function readCaseForm(){
+  const requerEl = document.querySelector('#cbRequerInvestimento .radio-pill.on');
+  return {
+    case_situacao_motivo: document.getElementById('cbSituacaoMotivo').value.trim(),
+    case_situacao_impacto: document.getElementById('cbSituacaoImpacto').value.trim(),
+    case_requer_investimento: requerEl ? requerEl.dataset.val : '',
+    case_investimentos_desc: document.getElementById('cbInvestimentosDesc').value.trim(),
+    case_como_implementado: document.getElementById('cbComoImplementado').value.trim(),
+    case_ferramentas_utilizadas: document.getElementById('cbFerramentasUtilizadas').value.trim(),
+    case_areas_envolvidas: document.getElementById('cbAreasEnvolvidas').value.trim(),
+    case_beneficios_obtidos: document.getElementById('cbBeneficiosObtidos').value.trim(),
+    case_resultados_mensuraveis: document.getElementById('cbResultadosMensuraveis').value.trim(),
+    case_cuidados_recomendados: document.getElementById('cbCuidadosRecomendados').value.trim(),
+    case_pre_requisito: document.getElementById('cbPreRequisito').value.trim(),
+    case_materiais_apoio: document.getElementById('cbMateriaisApoio').value.trim(),
+  };
+}
+
+/**
+ * Salva o Case da tela de Construção do Case. Regras de segurança (pedido da Regi):
+ * - Valida tudo antes de enviar; impede envio se houver erro (nunca limpa os campos).
+ * - Envia para o MESMO fluxo/Update item da curadoria comum, com o MESMO "id" — nunca
+ *   cria um item novo (ver ApiService.salvarCuradoria: sempre "id: Number(dados.id)").
+ * - Reenvia os campos de curadoria (categoria/potencial/nota/parecer/revisor) com o
+ *   valor JÁ GRAVADO (via categoriaOficialCuradoria/potencialCuradoria/etc.), nunca um
+ *   valor novo — esta tela só edita os 12 campos de Case.
+ * - Só mostra "sucesso" depois da resposta HTTP realmente vir OK; em caso de erro,
+ *   mostra mensagem de falha e MANTÉM os dados preenchidos para nova tentativa.
+ */
+async function handleSaveCase(){
+  const item = AppState.caseBuilderItem;
+  if(!item) return;
+
+  const form = readCaseForm();
+  const erros = validateCaseForm(form);
+  const errBox = document.getElementById('caseBuilderErrors');
+  const okBox = document.getElementById('caseBuilderSuccess');
+  if(okBox) okBox.innerHTML = '';
+
+  if(erros.length){
+    errBox.innerHTML = `
+      <div class="validation-banner">
+        <div class="vb-title">${ic('question')} Não é possível salvar — preencha os campos abaixo:</div>
+        <ul>${erros.map(e=>`<li>${esc(e)}</li>`).join('')}</ul>
+      </div>`;
+    errBox.scrollIntoView({behavior:'smooth', block:'start'});
+    return;
+  }
+  errBox.innerHTML = '';
+
+  const btn = document.getElementById('btnSalvarCase');
+  const labelOriginal = btn.innerHTML;
+  btn.disabled = true;
+  btn.textContent = 'Salvando…';
+  // StatusCase: quem decide agora é o auditor, explicitamente, no seletor
+  // "Status da validação do Case" desta tela — não é mais calculado sozinho.
+  const novoStatusCase = lerStatusCaseSelecionado('cbStatusCase');
+  try {
+    await ApiService.salvarCuradoria({
+      id: item.id,
+      // Campos da curadoria comum: reenviados com o valor JÁ GRAVADO, sem alteração —
+      // esta tela não edita categoria/potencial/nota/parecer/revisor.
+      categoria: categoriaOficialCuradoria(item),
+      potencial: potencialCuradoria(item),
+      nota: notaCuradoria(item),
+      parecer: parecerCuradoria(item),
+      revisor: revisorCuradoria(item),
+      status_case: novoStatusCase,
+      // Os 12 campos de Case — estes sim, recém-preenchidos nesta tela.
+      ...form,
+    });
+  } catch (err) {
+    console.error('[handleSaveCase] Falha ao enviar Case:', err);
+    errBox.innerHTML = `
+      <div class="validation-banner">
+        <div class="vb-title">${ic('question')} Não foi possível salvar o Case</div>
+        <ul><li>Nada foi registrado ainda. Os dados preenchidos nesta tela NÃO foram perdidos — verifique sua conexão e tente novamente.</li></ul>
+      </div>`;
+    errBox.scrollIntoView({behavior:'smooth', block:'start'});
+    btn.disabled = false;
+    btn.innerHTML = labelOriginal;
+    return; // não marca sucesso, não altera o item local — a gravação real falhou
+  }
+
+  // Sucesso confirmado pela resposta HTTP — só agora atualiza o registro local (mesmo
+  // "item" referenciado por RAW_DATA, sem duplicar nada) e mostra o modal de sucesso.
+  Object.assign(item, form);
+  item.status_case = novoStatusCase;
+  btn.disabled = false;
+  btn.innerHTML = labelOriginal;
+  abrirModalSucessoCase(item.id);
+}
+
+/** Abre o modal "Case salvo com sucesso!" — só chamado após confirmação real de gravação. */
+function abrirModalSucessoCase(idSalvo){
+  const overlay = document.getElementById('caseSuccessOverlay');
+  if(!overlay) return;
+  overlay.dataset.idSalvo = String(idSalvo);
+  overlay.classList.add('open');
+}
+
+function fecharModalSucessoCase(){
+  const overlay = document.getElementById('caseSuccessOverlay');
+  if(overlay) overlay.classList.remove('open');
+}
+
+/**
+ * Encontra o próximo Case com StatusCase = "Pendente" — mesma regra de elegibilidade
+ * da aba Cases (Legado ou Novo Modelo), excluindo o que acabou de ser salvo. É o
+ * mesmo universo de Cases que o filtro "Status da validação: Pendente" da aba Cases
+ * mostra — não existe uma segunda lógica de "próximo" separada.
+ */
+function encontrarProximoCasePendente(excluirId){
+  const base = RAW_DATA.filter(elegivelParaCuradoria).filter(d => d.id !== excluirId);
+  return base.find(d => (elegivelCaseManual(d) || elegivelCaseEstruturado(d)) && statusCaseOf(d) === 'Pendente');
+}
+
+/**
+ * Botão "Próximo Case" do modal de sucesso — vai para o próximo Case com StatusCase
+ * "Pendente" (Legado abre a Construção do Case; Novo Modelo abre o "Ver Case", onde
+ * a avaliação também pode ser feita). Se não houver mais nenhum, volta para Cases.
+ */
+function irParaProximoCase(){
+  const overlay = document.getElementById('caseSuccessOverlay');
+  const idSalvo = overlay ? Number(overlay.dataset.idSalvo) : null;
+  fecharModalSucessoCase();
+  const proximo = encontrarProximoCasePendente(idSalvo);
+  if(proximo){
+    if(elegivelCaseManual(proximo)) abrirConstrucaoCase(proximo.id);
+    else abrirDetalheCase(proximo.id);
+  } else {
+    showToast('Não há mais nenhum Case pendente de avaliação no momento.');
+    goToPage('cases'); // já chama renderCases() internamente
+  }
+}
+
+document.getElementById('caseSuccessBackBtn').addEventListener('click', ()=>{
+  fecharModalSucessoCase();
+  goToPage('cases'); // já chama renderCases() internamente
+});
+document.getElementById('caseSuccessNextBtn').addEventListener('click', irParaProximoCase);
+document.getElementById('caseSuccessOverlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'caseSuccessOverlay') fecharModalSucessoCase();
+});
+
+function renderLista(){
+  buildListaFilterPanel();
+  document.getElementById('listaSearch').addEventListener('input', (e)=>{
+    ListaState.search = e.target.value.trim().toLowerCase();
+    renderListaResults();
+  });
+  renderListaResults();
+}
+
 
 </script>
 <script>
